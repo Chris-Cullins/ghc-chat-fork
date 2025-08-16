@@ -157,8 +157,8 @@ suite.skip('Copilot Chat Sanity Test', function () {
 
 		await realInstaAccessor.invokeFunction(async (accessor) => {
 
-			const r = vscode.lm.registerLanguageModelChatProvider('test', new class implements vscode.LanguageModelChatProvider {
-				async prepareLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+			const r = vscode.lm.registerChatModelProvider('test', new class implements vscode.LanguageModelChatProvider {
+				async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 					return [{
 						id: 'test',
 						name: 'test',

@@ -11,6 +11,7 @@ import { IExtensionContributionFactory, asContributionFactory } from '../../comm
 import { ConfigurationMigrationContribution } from '../../configuration/vscode-node/configurationMigration';
 import { ContextKeysContribution } from '../../contextKeys/vscode-node/contextKeys.contribution';
 import { AiMappedEditsContrib } from '../../conversation/vscode-node/aiMappedEditsContrib';
+import { FileQueueContribution } from '../../fileQueue/node/fileQueueContribution';
 import { ConversationFeature } from '../../conversation/vscode-node/conversationFeature';
 import { FeedbackCommandContribution } from '../../conversation/vscode-node/feedbackContribution';
 import { LanguageModelAccess } from '../../conversation/vscode-node/languageModelAccess';
@@ -55,6 +56,7 @@ import vscodeContributions from '../vscode/contributions';
 export const vscodeNodeContributions: IExtensionContributionFactory[] = [
 	...vscodeContributions,
 	asContributionFactory(ConversationFeature),
+	asContributionFactory(FileQueueContribution),
 	workspaceChunkSearchContribution,
 	asContributionFactory(AuthenticationContrib),
 	chatBlockLanguageContribution,

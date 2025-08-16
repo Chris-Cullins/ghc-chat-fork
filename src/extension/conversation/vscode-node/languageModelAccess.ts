@@ -87,11 +87,23 @@ export class LanguageModelAccess extends Disposable implements IExtensionContrib
 	private async _registerChatProvider(): Promise<void> {
 		const provider: vscode.LanguageModelChatProvider = {
 			onDidChangeLanguageModelInformation: this._onDidChange.event,
-			prepareLanguageModelChatInformation: this._prepareLanguageModelChat.bind(this),
+			prepareLanguageModelChat: this._prepareLanguageModelChat.bind(this),
 			provideLanguageModelChatResponse: this._provideLanguageModelChatResponse.bind(this),
 			provideTokenCount: this._provideTokenCount.bind(this)
 		};
-		this._register(vscode.lm.registerLanguageModelChatProvider('copilot', provider));
+
+		// Use the correct API name: registerChatModelProvider (not registerLanguageModelChatProvider)
+		if (typeof vscode.lm.registerChatModelProvider === 'function') {
+			this._register(vscode.lm.registerChatModelProvider('copilot', provider));
+			this._logService.info('LanguageModelAccess: Successfully registered Copilot language model provider');
+		} else {
+			this._logService.error('LanguageModelAccess: vscode.lm.registerChatModelProvider is not available!');
+			this._logService.error(`LanguageModelAccess: typeof vscode.lm.registerChatModelProvider = ${typeof vscode.lm.registerChatModelProvider}`);
+			this._logService.error(`LanguageModelAccess: Available vscode.lm methods:`, Object.keys(vscode.lm));
+			console.error('[LanguageModelAccess] registerChatModelProvider not available!');
+			console.error('[LanguageModelAccess] vscode.lm =', vscode.lm);
+			throw new Error('Language Model API not available - cannot register Copilot provider');
+		}
 	}
 
 	private async _prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {

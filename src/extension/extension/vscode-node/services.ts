@@ -61,6 +61,10 @@ import { TelemetryService } from '../../../platform/telemetry/vscode-node/teleme
 import { IWorkspaceMutationManager } from '../../../platform/testing/common/workspaceMutationManager';
 import { ISetupTestsDetector, SetupTestsDetector } from '../../../platform/testing/node/setupTestDetector';
 import { ITestDepsResolver, TestDepsResolver } from '../../../platform/testing/node/testDepsResolver';
+import { IAutoPermissionService } from '../../../platform/autoPermission/common/autoPermissionService';
+import { AutoPermissionServiceImpl } from '../../../platform/autoPermission/node/autoPermissionServiceImpl';
+import { IFileQueueService } from '../../../platform/fileQueue/common/fileQueueService';
+import { FileQueueServiceImpl } from '../../../platform/fileQueue/node/fileQueueServiceImpl';
 import { IThinkingDataService, ThinkingDataImpl } from '../../../platform/thinking/node/thinkingDataService';
 import { ITokenizerProvider, TokenizerProvider } from '../../../platform/tokenizer/node/tokenizer';
 import { IWorkspaceChunkSearchService, WorkspaceChunkSearchService } from '../../../platform/workspaceChunkSearch/node/workspaceChunkSearchService';
@@ -194,6 +198,8 @@ export function registerServices(builder: IInstantiationServiceBuilder, extensio
 	builder.define(IWorkspaceListenerService, new SyncDescriptor(WorkspacListenerService));
 	builder.define(ICodeSearchAuthenticationService, new SyncDescriptor(VsCodeCodeSearchAuthenticationService));
 	builder.define(IThinkingDataService, new SyncDescriptor(ThinkingDataImpl));
+	builder.define(IFileQueueService, new SyncDescriptor(FileQueueServiceImpl));
+	builder.define(IAutoPermissionService, new SyncDescriptor(AutoPermissionServiceImpl));
 }
 
 function setupMSFTExperimentationService(builder: IInstantiationServiceBuilder, extensionContext: ExtensionContext) {

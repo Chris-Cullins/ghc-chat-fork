@@ -63,7 +63,7 @@ export abstract class BaseOpenAICompatibleLMProvider implements BYOKModelProvide
 		}
 	}
 
-	async prepareLanguageModelChatInformation(options: { silent: boolean }, token: CancellationToken): Promise<LanguageModelChatInformation[]> {
+	async prepareLanguageModelChat(options: { silent: boolean }, token: CancellationToken): Promise<LanguageModelChatInformation[]> {
 		if (!this._apiKey && this.authType === BYOKAuthType.GlobalApiKey) { // If we don't have the API key it might just be in storage, so we try to read it first
 			this._apiKey = await this._byokStorageService.getAPIKey(this._name);
 		}

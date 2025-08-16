@@ -68,7 +68,15 @@ export class BYOKContrib extends Disposable implements IExtensionContribution {
 			this._providers.set(CustomOAIBYOKModelProvider.providerName.toLowerCase(), instantiationService.createInstance(CustomOAIBYOKModelProvider, this._byokStorageService));
 
 			for (const [providerName, provider] of this._providers) {
-				this._store.add(lm.registerLanguageModelChatProvider(providerName, provider));
+				// Use the correct API name: registerChatModelProvider (not registerLanguageModelChatProvider)
+				if (typeof lm.registerChatModelProvider === 'function') {
+					this._store.add(lm.registerChatModelProvider(providerName, provider));
+					this._logService.info(`BYOK: Registered language model provider: ${providerName}`);
+				} else {
+					this._logService.warn(`BYOK: lm.registerChatModelProvider is not available, skipping registration of ${providerName}`);
+					console.warn(`[BYOK] registerChatModelProvider is not a function, type: ${typeof lm.registerChatModelProvider}`);
+					console.warn(`[BYOK] Available lm methods:`, Object.keys(lm));
+				}
 			}
 		}
 	}

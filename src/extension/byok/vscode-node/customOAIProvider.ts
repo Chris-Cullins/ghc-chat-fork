@@ -133,7 +133,7 @@ export class CustomOAIBYOKModelProvider implements BYOKModelProvider<CustomOAIMo
 		return baseInfo;
 	}
 
-	async prepareLanguageModelChatInformation(options: { silent: boolean }, token: CancellationToken): Promise<CustomOAIModelInfo[]> {
+	async prepareLanguageModelChat(options: { silent: boolean }, token: CancellationToken): Promise<CustomOAIModelInfo[]> {
 		try {
 			const knownModels = await this.getModelsWithAPIKeys(options.silent);
 			return Object.entries(knownModels).map(([id, capabilities]) => {

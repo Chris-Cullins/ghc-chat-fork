@@ -57,7 +57,7 @@ export class AnthropicLMProvider implements BYOKModelProvider<LanguageModelChatI
 		}
 	}
 
-	async prepareLanguageModelChatInformation(options: { silent: boolean }, token: CancellationToken): Promise<LanguageModelChatInformation[]> {
+	async prepareLanguageModelChat(options: { silent: boolean }, token: CancellationToken): Promise<LanguageModelChatInformation[]> {
 		if (!this._apiKey) { // If we don't have the API key it might just be in storage, so we try to read it first
 			this._apiKey = await this._byokStorageService.getAPIKey(AnthropicLMProvider.providerName);
 		}
