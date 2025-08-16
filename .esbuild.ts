@@ -39,6 +39,7 @@ const baseNodeBuildOptions = {
 		'zeromq',
 		'electron', // this is for simulation workbench,
 		'sqlite3',
+		'jsdom', // for file queue tests
 		...(isDev ? [] : ['dotenv', 'source-map-support'])
 	],
 	platform: 'node',

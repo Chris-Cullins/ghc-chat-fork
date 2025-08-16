@@ -1,0 +1,650 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Root Variables */
+:root {
+	--container-padding: 16px;
+	--border-radius: 4px;
+	--border-color: var(--vscode-widget-border);
+	--hover-background: var(--vscode-list-hoverBackground);
+	--active-background: var(--vscode-list-activeSelectionBackground);
+	--success-color: var(--vscode-terminal-ansiGreen);
+	--warning-color: var(--vscode-terminal-ansiYellow);
+	--error-color: var(--vscode-terminal-ansiRed);
+	--processing-color: var(--vscode-terminal-ansiBlue);
+	--spacing-xs: 4px;
+	--spacing-sm: 8px;
+	--spacing-md: 12px;
+	--spacing-lg: 16px;
+	--spacing-xl: 24px;
+}
+
+/* Reset and Base */
+* {
+	box-sizing: border-box;
+}
+
+body {
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-font-size);
+	color: var(--vscode-foreground);
+	background-color: var(--vscode-sideBar-background);
+	margin: 0;
+	padding: 0;
+	overflow-x: hidden;
+}
+
+.container {
+	padding: var(--container-padding);
+	max-width: 100%;
+}
+
+/* Typography */
+h2, h3 {
+	margin: 0 0 var(--spacing-md) 0;
+	font-weight: 600;
+}
+
+h2 {
+	font-size: 1.2em;
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-sm);
+}
+
+h3 {
+	font-size: 1em;
+	color: var(--vscode-foreground);
+}
+
+/* Header */
+.header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: var(--spacing-lg);
+	padding-bottom: var(--spacing-md);
+	border-bottom: 1px solid var(--border-color);
+}
+
+.header-stats {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: var(--spacing-xs);
+	font-size: 0.9em;
+	color: var(--vscode-descriptionForeground);
+}
+
+/* Buttons */
+.btn {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border: none;
+	border-radius: var(--border-radius);
+	padding: var(--spacing-sm) var(--spacing-md);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--spacing-xs);
+	font-size: 0.9em;
+	transition: background-color 0.2s;
+}
+
+.btn:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
+.btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.btn-primary {
+	background: var(--vscode-button-background);
+}
+
+.btn-secondary {
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+}
+
+.btn-secondary:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.btn-success {
+	background: var(--success-color);
+	color: var(--vscode-editor-background);
+}
+
+.btn-warning {
+	background: var(--warning-color);
+	color: var(--vscode-editor-background);
+}
+
+.btn-danger {
+	background: var(--error-color);
+	color: var(--vscode-editor-background);
+}
+
+.btn-icon {
+	padding: var(--spacing-xs);
+	background: transparent;
+	color: var(--vscode-foreground);
+}
+
+.btn-icon:hover {
+	background: var(--hover-background);
+}
+
+/* Controls */
+.controls {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: var(--spacing-lg);
+	gap: var(--spacing-md);
+	flex-wrap: wrap;
+}
+
+.control-group {
+	display: flex;
+	gap: var(--spacing-sm);
+	align-items: center;
+}
+
+/* Progress */
+.progress-container {
+	background: var(--vscode-editor-background);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius);
+	padding: var(--spacing-md);
+	margin-bottom: var(--spacing-lg);
+}
+
+.progress-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: var(--spacing-sm);
+}
+
+.progress-bar {
+	width: 100%;
+	height: 8px;
+	background: var(--vscode-progressBar-background);
+	border-radius: 4px;
+	overflow: hidden;
+	margin-bottom: var(--spacing-sm);
+}
+
+.progress-fill {
+	height: 100%;
+	background: var(--vscode-progressBar-background);
+	transition: width 0.3s ease;
+	border-radius: 4px;
+}
+
+.progress-stats {
+	display: flex;
+	justify-content: space-between;
+	font-size: 0.85em;
+	color: var(--vscode-descriptionForeground);
+}
+
+/* Statistics */
+.statistics {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+	gap: var(--spacing-md);
+	margin-bottom: var(--spacing-lg);
+	padding: var(--spacing-md);
+	background: var(--vscode-editor-background);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius);
+}
+
+.stat-item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+}
+
+.stat-label {
+	font-size: 0.8em;
+	color: var(--vscode-descriptionForeground);
+	margin-bottom: var(--spacing-xs);
+}
+
+.stat-value {
+	font-weight: 600;
+	font-size: 1.1em;
+}
+
+/* Sections */
+.queue-section,
+.recent-section {
+	margin-bottom: var(--spacing-xl);
+}
+
+.section-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: var(--spacing-md);
+}
+
+.queue-actions {
+	display: flex;
+	gap: var(--spacing-xs);
+}
+
+/* Queue List */
+.queue-list,
+.recent-list {
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius);
+	overflow: hidden;
+}
+
+.queue-item {
+	border-bottom: 1px solid var(--border-color);
+	background: var(--vscode-editor-background);
+	transition: background-color 0.2s;
+}
+
+.queue-item:last-child {
+	border-bottom: none;
+}
+
+.queue-item:hover {
+	background: var(--hover-background);
+}
+
+.queue-item-header {
+	display: flex;
+	align-items: center;
+	padding: var(--spacing-md);
+	cursor: pointer;
+}
+
+.queue-item-icon {
+	margin-right: var(--spacing-sm);
+	display: flex;
+	align-items: center;
+}
+
+.queue-item-content {
+	flex: 1;
+	min-width: 0;
+}
+
+.queue-item-title {
+	font-weight: 500;
+	margin-bottom: var(--spacing-xs);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.queue-item-meta {
+	font-size: 0.85em;
+	color: var(--vscode-descriptionForeground);
+	display: flex;
+	gap: var(--spacing-md);
+	flex-wrap: wrap;
+}
+
+.queue-item-actions {
+	display: flex;
+	gap: var(--spacing-xs);
+	opacity: 0;
+	transition: opacity 0.2s;
+}
+
+.queue-item:hover .queue-item-actions {
+	opacity: 1;
+}
+
+.queue-item-details {
+	padding: 0 var(--spacing-md) var(--spacing-md);
+	display: none;
+	background: var(--vscode-input-background);
+	border-top: 1px solid var(--border-color);
+}
+
+.queue-item.expanded .queue-item-details {
+	display: block;
+}
+
+.expand-toggle {
+	margin-left: var(--spacing-sm);
+	background: transparent;
+	border: none;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	padding: var(--spacing-xs);
+	border-radius: var(--border-radius);
+}
+
+.expand-toggle:hover {
+	background: var(--hover-background);
+}
+
+/* Status indicators */
+.status-pending {
+	color: var(--vscode-descriptionForeground);
+}
+
+.status-processing {
+	color: var(--processing-color);
+}
+
+.status-completed {
+	color: var(--success-color);
+}
+
+.status-failed {
+	color: var(--error-color);
+}
+
+.status-cancelled {
+	color: var(--warning-color);
+}
+
+/* Priority indicators */
+.priority-critical {
+	color: var(--error-color);
+}
+
+.priority-high {
+	color: var(--warning-color);
+}
+
+.priority-normal {
+	color: var(--vscode-foreground);
+}
+
+.priority-low {
+	color: var(--vscode-descriptionForeground);
+}
+
+/* Empty states */
+.empty-state {
+	text-align: center;
+	padding: var(--spacing-xl);
+	color: var(--vscode-descriptionForeground);
+}
+
+.empty-state .codicon {
+	font-size: 2em;
+	margin-bottom: var(--spacing-md);
+	opacity: 0.5;
+}
+
+.empty-state p {
+	margin: var(--spacing-sm) 0;
+}
+
+.empty-subtitle {
+	font-size: 0.9em;
+	opacity: 0.7;
+}
+
+/* Drag and Drop */
+.drag-over {
+	background: var(--active-background);
+	border-color: var(--vscode-focusBorder);
+	border-width: 2px;
+	border-style: dashed;
+	transition: all 0.2s ease;
+	position: relative;
+}
+
+.drag-over::before {
+	content: "Drop files here to add to queue";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	background: var(--vscode-inputValidation-infoBorder);
+	color: var(--vscode-inputValidation-infoForeground);
+	padding: var(--spacing-md) var(--spacing-lg);
+	border-radius: var(--border-radius);
+	font-size: 0.9em;
+	font-weight: 500;
+	white-space: nowrap;
+	z-index: 10;
+	pointer-events: none;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dragging {
+	opacity: 0.5;
+}
+
+/* Global drag state */
+body.drag-active {
+	background: var(--vscode-editor-background);
+}
+
+body.drag-active .queue-list,
+body.drag-active .empty-state {
+	border: 2px dashed var(--vscode-focusBorder);
+	background: var(--hover-background);
+	transition: all 0.2s ease;
+}
+
+/* Enhanced empty state for drag and drop */
+.empty-state {
+	min-height: 120px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s ease;
+	cursor: default;
+}
+
+.empty-state.drag-over {
+	border-color: var(--vscode-inputValidation-infoBorder);
+	background: var(--vscode-inputValidation-infoBackground);
+}
+
+.empty-state.drag-over::before {
+	content: "Drop files here to add to queue";
+	color: var(--vscode-inputValidation-infoForeground);
+}
+
+/* Drag feedback overlay */
+.drag-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.1);
+	z-index: 1000;
+	display: none;
+	pointer-events: none;
+}
+
+body.drag-active .drag-overlay {
+	display: block;
+}
+
+/* Drop zone highlighting */
+.queue-list.drag-over {
+	min-height: 60px;
+}
+
+/* Animate drop zones when drag is active */
+body.drag-active .queue-list:not(.drag-over),
+body.drag-active .empty-state:not(.drag-over) {
+	opacity: 0.7;
+	transform: scale(0.98);
+}
+
+/* Recent items */
+.recent-item {
+	padding: var(--spacing-sm) var(--spacing-md);
+	border-bottom: 1px solid var(--border-color);
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-sm);
+}
+
+.recent-item:last-child {
+	border-bottom: none;
+}
+
+.recent-item-icon {
+	display: flex;
+	align-items: center;
+}
+
+.recent-item-content {
+	flex: 1;
+	min-width: 0;
+}
+
+.recent-item-title {
+	font-size: 0.9em;
+	margin-bottom: var(--spacing-xs);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.recent-item-time {
+	font-size: 0.8em;
+	color: var(--vscode-descriptionForeground);
+}
+
+/* Responsive design */
+@media (max-width: 400px) {
+	.controls {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.control-group {
+		justify-content: center;
+	}
+
+	.header {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--spacing-sm);
+	}
+
+	.header-stats {
+		align-items: flex-start;
+	}
+
+	.statistics {
+		grid-template-columns: 1fr;
+	}
+
+	.queue-item-meta {
+		flex-direction: column;
+		gap: var(--spacing-xs);
+	}
+
+	.progress-stats {
+		flex-direction: column;
+		gap: var(--spacing-xs);
+	}
+}
+
+/* Drag and Drop Feedback */
+.drop-feedback {
+	padding: var(--spacing-md) var(--spacing-lg);
+	margin-bottom: var(--spacing-md);
+	border-radius: var(--border-radius);
+	font-size: 0.9em;
+	font-weight: 500;
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-sm);
+	position: relative;
+	overflow: hidden;
+	z-index: 100;
+}
+
+.drop-feedback::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 4px;
+}
+
+.drop-feedback-success {
+	background: var(--vscode-inputValidation-infoBackground);
+	color: var(--vscode-inputValidation-infoForeground);
+	border: 1px solid var(--vscode-inputValidation-infoBorder);
+}
+
+.drop-feedback-success::before {
+	background: var(--success-color);
+}
+
+.drop-feedback-error {
+	background: var(--vscode-inputValidation-errorBackground);
+	color: var(--vscode-inputValidation-errorForeground);
+	border: 1px solid var(--vscode-inputValidation-errorBorder);
+}
+
+.drop-feedback-error::before {
+	background: var(--error-color);
+}
+
+/* Animations */
+@keyframes pulse {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
+
+.processing-indicator {
+	animation: pulse 2s infinite;
+}
+
+.fade-in {
+	animation: fadeIn 0.3s ease-in;
+}
+
+.fade-out {
+	animation: fadeOut 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(-10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes fadeOut {
+	from {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	to {
+		opacity: 0;
+		transform: translateY(-10px);
+	}
+}
