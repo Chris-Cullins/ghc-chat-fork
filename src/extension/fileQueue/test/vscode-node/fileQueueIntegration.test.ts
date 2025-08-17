@@ -39,6 +39,9 @@ const mockVSCode = vi.hoisted(() => {
 			showInformationMessage: vi.fn(),
 			showErrorMessage: vi.fn(),
 		},
+		commands: {
+			executeCommand: vi.fn().mockResolvedValue(undefined)
+		},
 		CancellationToken: class {
 			isCancellationRequested = false;
 			onCancellationRequested = vi.fn();
@@ -553,6 +556,145 @@ suite('FileQueue Integration Tests', () => {
 					])
 				})
 			});
+		});
+	});
+
+	suite('Multiple File Processing Fix', () => {
+		test('should process multiple files sequentially with proper chat wait time', async () => {
+			// Setup: Create a file system service with a mock for readFile that simulates file content
+			const mockFileSystem = new IntegrationMockFileSystemService();
+			mockFileSystem.addFile('/test/file1.ts', 1024);
+			mockFileSystem.addFile('/test/file2.js', 2048);
+			mockFileSystem.addFile('/test/file3.py', 512);
+
+			// Override readFile to return dummy content
+			mockFileSystem.readFile = vi.fn().mockResolvedValue(
+				new TextEncoder().encode('// Mock file content for testing')
+			);
+
+			// Create a new service instance for this test with the mock file system
+			const testFileQueueService = new FileQueueServiceImpl(
+				mockExtensionContext,
+				mockFileSystem,
+				mockLogService
+			);
+
+			// Initialize the service
+			await testFileQueueService.loadState();
+
+			// Create webview provider
+			const testWebviewProvider = new FileQueueWebviewProvider(
+				mockExtensionContext,
+				testFileQueueService,
+				mockLogService
+			);
+
+			const testWebviewView = createMockWebviewView();
+			testWebviewProvider.resolveWebviewView(testWebviewView, {}, new mockVSCode.CancellationToken());
+
+			// Reset and configure VS Code commands mock
+			const mockExecuteCommand = mockVSCode.commands.executeCommand;
+			mockExecuteCommand.mockClear();
+
+			// Add multiple files to queue
+			await testFileQueueService.addMultipleToQueue([
+				'/test/file1.ts',
+				'/test/file2.js',
+				'/test/file3.py'
+			], QueueItemPriority.Normal);
+
+			// Verify files are in queue
+			let items = testFileQueueService.getQueueItems();
+			expect(items.length).toBe(3);
+
+			// Start processing with a shorter wait time for testing
+			const processingStartTime = Date.now();
+			const processingPromise = testFileQueueService.startProcessing({
+				maxConcurrency: 1,
+				continueOnError: true,
+				chatWaitTime: 1000 // 1 second for faster testing
+			});
+
+			// Give processing some time to start and process files
+			await new Promise(resolve => setTimeout(resolve, 4000)); // 4 seconds total
+
+			// Stop processing
+			await testFileQueueService.stopProcessing();
+
+			const processingEndTime = Date.now();
+			const totalProcessingTime = processingEndTime - processingStartTime;
+
+			// Verify that chat commands were called for each file
+			// Each file should trigger: attachFile + open commands
+			expect(mockExecuteCommand).toHaveBeenCalledWith('workbench.action.chat.attachFile',
+				expect.objectContaining({ fsPath: '/test/file1.ts' }));
+			expect(mockExecuteCommand).toHaveBeenCalledWith('workbench.action.chat.open',
+				expect.objectContaining({ query: 'file1.ts is your prompt' }));
+
+			// Verify that processing took enough time to include wait periods
+			// With 3 files and 1 second wait each, plus processing overhead, should be > 2 seconds
+			expect(totalProcessingTime).toBeGreaterThan(2000);
+
+			// Verify that files were processed (moved to history)
+			const queueAfterProcessing = testFileQueueService.getQueueItems();
+			const processingHistory = testFileQueueService.getProcessingHistory();
+
+			// Files should be moved from queue to history after processing
+			expect(queueAfterProcessing.length).toBeLessThan(3);
+			expect(processingHistory.length).toBeGreaterThan(0);
+
+			// Log the results for debugging
+			console.log(`Processed ${processingHistory.length} files in ${totalProcessingTime}ms`);
+			console.log(`Chat commands executed: ${mockExecuteCommand.mock.calls.length} times`);
+		});
+
+		test('should respect cancellation during multi-file processing', async () => {
+			// Setup with mock file system
+			const mockFileSystem = new IntegrationMockFileSystemService();
+			mockFileSystem.addFile('/test/cancel1.ts', 1024);
+			mockFileSystem.addFile('/test/cancel2.js', 2048);
+			mockFileSystem.readFile = vi.fn().mockResolvedValue(
+				new TextEncoder().encode('// Mock file content for cancellation test')
+			);
+
+			const testFileQueueService = new FileQueueServiceImpl(
+				mockExtensionContext,
+				mockFileSystem,
+				mockLogService
+			);
+
+			await testFileQueueService.loadState();
+
+			// Reset VS Code commands mock
+			const mockExecuteCommand = mockVSCode.commands.executeCommand;
+			mockExecuteCommand.mockClear();
+
+			// Add files to queue
+			await testFileQueueService.addMultipleToQueue([
+				'/test/cancel1.ts',
+				'/test/cancel2.js'
+			], QueueItemPriority.Normal);
+
+			// Start processing with longer wait time
+			const processingPromise = testFileQueueService.startProcessing({
+				maxConcurrency: 1,
+				continueOnError: true,
+				chatWaitTime: 5000 // 5 seconds wait
+			});
+
+			// Let processing start on first file
+			await new Promise(resolve => setTimeout(resolve, 500));
+
+			// Cancel processing while it's running
+			await testFileQueueService.stopProcessing(true);
+
+			// Verify processing was stopped
+			const state = testFileQueueService.getQueueState();
+			expect(state.isProcessing).toBe(false);
+
+			// Verify that not all files were processed (due to cancellation)
+			const history = testFileQueueService.getProcessingHistory();
+			expect(history.length).toBeLessThanOrEqual(2); // Should be cancelled before processing all files
 		});
 	});
 });

@@ -18,16 +18,6 @@ export const enum FileQueueItemStatus {
 }
 
 /**
- * Priority levels for queue items
- */
-export const enum QueueItemPriority {
-	Low = 1,
-	Normal = 2,
-	High = 3,
-	Critical = 4
-}
-
-/**
  * Result of processing a file
  */
 export interface ProcessingResult {
@@ -51,9 +41,6 @@ export interface FileQueueItem {
 
 	/** Display name for the file */
 	fileName: string;
-
-	/** Processing priority */
-	priority: QueueItemPriority;
 
 	/** Current status */
 	status: FileQueueItemStatus;
@@ -179,6 +166,8 @@ export interface QueueProcessingOptions {
 
 	/** Delay between retries (ms) */
 	retryDelay?: number;
+	/** Time to wait for chat processing completion between files (ms) */
+	chatWaitTime?: number;
 }
 
 /**
@@ -192,19 +181,17 @@ export interface IFileQueueService {
 	/**
 	 * Add a file to the processing queue
 	 * @param filePath Path to the file to add
-	 * @param priority Priority level for processing
 	 * @param metadata Optional metadata
 	 * @returns Promise resolving to the item ID
 	 */
-	addToQueue(filePath: string, priority?: QueueItemPriority, metadata?: Record<string, any>): Promise<string>;
+	addToQueue(filePath: string, metadata?: Record<string, any>): Promise<string>;
 
 	/**
 	 * Add multiple files to the queue
 	 * @param filePaths Array of file paths to add
-	 * @param priority Priority level for all files
 	 * @returns Promise resolving to array of item IDs
 	 */
-	addMultipleToQueue(filePaths: string[], priority?: QueueItemPriority): Promise<string[]>;
+	addMultipleToQueue(filePaths: string[]): Promise<string[]>;
 
 	/**
 	 * Remove an item from the queue

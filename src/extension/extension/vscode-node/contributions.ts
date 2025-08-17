@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { AuthenticationContrib } from '../../authentication/vscode-node/authentication.contribution';
+import { AutoPermissionContribution } from '../../autoPermission/node/autoPermissionContribution';
 import { BYOKContrib } from '../../byok/vscode-node/byokContribution';
 import { ChatQuotaContribution } from '../../chat/vscode-node/chatQuota.contribution';
 import * as chatBlockLanguageContribution from '../../codeBlocks/vscode-node/chatBlockLanguageFeatures.contribution';
@@ -57,6 +58,7 @@ export const vscodeNodeContributions: IExtensionContributionFactory[] = [
 	...vscodeContributions,
 	asContributionFactory(ConversationFeature),
 	asContributionFactory(FileQueueContribution),
+	asContributionFactory(AutoPermissionContribution),
 	workspaceChunkSearchContribution,
 	asContributionFactory(AuthenticationContrib),
 	chatBlockLanguageContribution,

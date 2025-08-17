@@ -184,7 +184,8 @@
             data: {
                 options: {
                     maxConcurrency: 1,
-                    continueOnError: true
+                    continueOnError: true,
+                    chatWaitTime: 10000 // 10 seconds between files for chat processing
                 }
             }
         });

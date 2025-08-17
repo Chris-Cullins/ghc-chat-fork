@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { IVSCodeExtensionContext } from '../../../platform/extContext/common/extensionContext';
-import { IFileQueueService, FileQueueItem, QueueState, FileQueueItemStatus, QueueItemPriority } from '../../../platform/fileQueue/common/fileQueueService';
+import { IFileQueueService, FileQueueItem, QueueState, FileQueueItemStatus } from '../../../platform/fileQueue/common/fileQueueService';
 import { ILogService } from '../../../platform/log/common/logService';
 import { Disposable } from '../../../util/vs/base/common/lifecycle';
 
@@ -18,7 +18,6 @@ interface AddFileMessage extends WebviewMessage {
 	type: 'addFile';
 	data: {
 		filePath: string;
-		priority: QueueItemPriority;
 	};
 }
 
@@ -26,7 +25,6 @@ interface AddMultipleFilesMessage extends WebviewMessage {
 	type: 'addMultipleFiles';
 	data: {
 		filePaths: string[];
-		priority: QueueItemPriority;
 	};
 }
 
@@ -167,8 +165,7 @@ export class FileQueueWebviewProvider extends Disposable implements vscode.Webvi
 
 							// Add to queue if validation passes
 							const itemId = await this.fileQueueService.addToQueue(
-								message.data.filePath,
-								message.data.priority || QueueItemPriority.Normal
+								message.data.filePath
 							);
 
 							this.logService.debug(`Added file to queue: ${message.data.filePath} (ID: ${itemId})`);
@@ -213,8 +210,7 @@ export class FileQueueWebviewProvider extends Disposable implements vscode.Webvi
 
 							// Use the service's addMultipleToQueue method for better batch handling
 							const itemIds = await this.fileQueueService.addMultipleToQueue(
-								filePaths,
-								message.data.priority || QueueItemPriority.Normal
+								filePaths
 							);
 
 							this.logService.debug(`Added ${itemIds.length} files to queue via drag and drop`);
@@ -352,33 +348,14 @@ export class FileQueueWebviewProvider extends Disposable implements vscode.Webvi
 				return;
 			}
 
-			// Select priority for the files
-			const priorityOptions = [
-				{ label: 'Critical', description: 'Process immediately', value: QueueItemPriority.Critical },
-				{ label: 'High', description: 'Process before normal items', value: QueueItemPriority.High },
-				{ label: 'Normal', description: 'Standard processing order', value: QueueItemPriority.Normal },
-				{ label: 'Low', description: 'Process after other items', value: QueueItemPriority.Low }
-			];
-
-			const selectedPriority = await vscode.window.showQuickPick(priorityOptions, {
-				placeHolder: 'Select priority for the selected files'
-			});
-
-			if (!selectedPriority) {
-				return;
-			}
-
 			// Add files to queue
 			const filePaths = selectedFiles.map(uri => uri.fsPath);
 			const itemIds = await this.fileQueueService.addMultipleToQueue(
-				filePaths,
-				selectedPriority.value
+				filePaths
 			);
 
-			const priorityName = selectedPriority.label.toLowerCase();
-
 			vscode.window.showInformationMessage(
-				`Added ${itemIds.length} file${itemIds.length !== 1 ? 's' : ''} to queue with ${priorityName} priority`
+				`Added ${itemIds.length} file${itemIds.length !== 1 ? 's' : ''} to queue`
 			);
 
 			this.logService.debug(`Added ${itemIds.length} files to queue via file picker`);

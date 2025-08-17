@@ -21,7 +21,6 @@ import {
 	ProcessingStateEvent,
 	QueueChangeEvent,
 	QueueError,
-	QueueItemPriority,
 	QueueProcessingOptions,
 	QueueState
 } from '../common/fileQueueService';
@@ -97,7 +96,6 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 
 	async addToQueue(
 		filePath: string,
-		priority: QueueItemPriority = QueueItemPriority.Normal,
 		metadata?: Record<string, any>
 	): Promise<string> {
 		await this._ensureInitialized();
@@ -112,7 +110,6 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 			id: randomUUID(),
 			filePath: path.resolve(filePath),
 			fileName: path.basename(filePath),
-			priority,
 			status: FileQueueItemStatus.Pending,
 			addedAt: new Date(),
 			metadata: { ...metadata }
@@ -141,14 +138,13 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 	}
 
 	async addMultipleToQueue(
-		filePaths: string[],
-		priority: QueueItemPriority = QueueItemPriority.Normal
+		filePaths: string[]
 	): Promise<string[]> {
 		const itemIds: string[] = [];
 
 		for (const filePath of filePaths) {
 			try {
-				const itemId = await this.addToQueue(filePath, priority);
+				const itemId = await this.addToQueue(filePath);
 				itemIds.push(itemId);
 			} catch (error) {
 				this.logService.error(`Failed to add file to queue: ${filePath}`, error);
@@ -205,14 +201,8 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 			}
 		}
 
-		// Update priority based on new order
-		itemIds.forEach((itemId, index) => {
-			const item = this._items.get(itemId);
-			if (item && item.status === FileQueueItemStatus.Pending) {
-				// Higher index = lower priority for processing order
-				item.priority = QueueItemPriority.Critical - Math.floor(index / itemIds.length * 3);
-			}
-		});
+		// Reordering is handled naturally by the queue order
+		// No need to update priority since we're using FIFO
 
 		await this.saveState();
 
@@ -268,6 +258,7 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 			autoRetry: options.autoRetry ?? false,
 			maxRetries: options.maxRetries ?? 3,
 			retryDelay: options.retryDelay ?? FileQueueServiceImpl.DEFAULT_RETRY_DELAY,
+			chatWaitTime: options.chatWaitTime ?? 10000, // Default 10 seconds
 			...options
 		};
 
@@ -431,11 +422,8 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 			);
 		}
 
-		// Sort by priority and then by added time
+		// Sort by added time only (FIFO)
 		return items.sort((a, b) => {
-			if (a.priority !== b.priority) {
-				return b.priority - a.priority; // Higher priority first
-			}
 			return a.addedAt.getTime() - b.addedAt.getTime(); // Earlier first
 		});
 	}
@@ -687,11 +675,8 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 				this._updateQueueState();
 				await this.saveState();
 
-				// Add a small buffer between files to ensure chat system is ready for next operation
-				if (!cancellationToken.isCancellationRequested && this._getNextItemToProcess()) {
-					this.logService.debug('Adding buffer delay between file processing');
-					await this._delay(2000, cancellationToken); // 2 second buffer between files
-				}
+				// The _waitForChatCompletion method already includes appropriate delays,
+				// so we don't need an additional buffer delay here anymore
 			}
 
 			// Processing completed
@@ -718,10 +703,7 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 		const pendingItems = Array.from(this._items.values())
 			.filter(item => item.status === FileQueueItemStatus.Pending)
 			.sort((a, b) => {
-				// Sort by priority first, then by added time
-				if (a.priority !== b.priority) {
-					return b.priority - a.priority;
-				}
+				// Sort by added time only (FIFO)
 				return a.addedAt.getTime() - b.addedAt.getTime();
 			});
 
@@ -830,12 +812,18 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 				throw new Error(`Failed to attach file to chat: ${error}`);
 			}
 
+			// Wait for user to indicate they're ready for the next file
+			// This ensures we don't overwhelm the chat system and allows proper sequential processing
+			this.logService.info(`DEBUG: Waiting for chat processing completion signal for: ${item.filePath}`);
+			await this._waitForChatCompletion(item.filePath, cancellationToken);
+			this.logService.info(`DEBUG: Chat processing completion confirmed for: ${item.filePath}`);
+
 			const duration = Date.now() - startTime;
 			this.logService.info(`DEBUG: Processing completed for ${item.filePath}, duration: ${duration}ms`);
 
 			return {
 				success: true,
-				message: `File ${fileName} attached to chat and processing initiated`,
+				message: `File ${fileName} attached to chat and processing completed`,
 				duration,
 				data: {
 					operation,
@@ -882,6 +870,29 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 
 		} catch (error) {
 			this.logService.error(`Failed to open Copilot Chat for file: ${filePath}`, error);
+			throw error;
+		}
+	}
+
+	private async _waitForChatCompletion(filePath: string, cancellationToken: CancellationToken): Promise<void> {
+		// Strategy: Wait a configurable amount of time to allow chat to process the file
+		// and for the user to review the response before proceeding to the next file.
+		// This prevents overwhelming the chat system with multiple files at once.
+
+		const configuredWaitTime = this._processingOptions.chatWaitTime ?? 10000; // Default 10 seconds
+		const maxWaitTime = 60000; // 60 seconds maximum wait time for safety
+
+		// Use the configured wait time, but cap it at max for safety
+		const waitTime = Math.min(configuredWaitTime, maxWaitTime);
+
+		this.logService.info(`DEBUG: Waiting ${waitTime}ms for chat processing of: ${filePath}`);
+
+		try {
+			await this._delay(waitTime, cancellationToken);
+			this.logService.info(`DEBUG: Chat processing wait completed for: ${filePath}`);
+		} catch (error) {
+			// If cancelled, we should still log and re-throw the cancellation error
+			this.logService.info(`DEBUG: Chat processing wait cancelled for: ${filePath}`);
 			throw error;
 		}
 	}

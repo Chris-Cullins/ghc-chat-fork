@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IFileQueueService, QueueItemPriority } from '../../../platform/fileQueue/common/fileQueueService';
+import { IFileQueueService } from '../../../platform/fileQueue/common/fileQueueService';
 import { ILogService } from '../../../platform/log/common/logService';
 
 /**
@@ -17,9 +17,9 @@ export class FileQueueCommands {
 	) { }
 
 	/**
-	 * Add files with priority selection
+	 * Add files to the queue
 	 */
-	async addFilesWithPriority(fileUris?: vscode.Uri[]): Promise<void> {
+	async addFiles(fileUris?: vscode.Uri[]): Promise<void> {
 		try {
 			// Get file URIs if not provided
 			if (!fileUris || fileUris.length === 0) {
@@ -37,38 +37,19 @@ export class FileQueueCommands {
 				fileUris = selectedFiles;
 			}
 
-			// Select priority
-			const priorityOptions = [
-				{ label: 'Critical', description: 'Process immediately', value: QueueItemPriority.Critical },
-				{ label: 'High', description: 'Process before normal items', value: QueueItemPriority.High },
-				{ label: 'Normal', description: 'Standard processing order', value: QueueItemPriority.Normal },
-				{ label: 'Low', description: 'Process after other items', value: QueueItemPriority.Low }
-			];
-
-			const selectedPriority = await vscode.window.showQuickPick(priorityOptions, {
-				placeHolder: 'Select priority for the selected files'
-			});
-
-			if (!selectedPriority) {
-				return;
-			}
-
 			// Add files to queue
 			const filePaths = fileUris.map(uri => uri.fsPath);
 			const itemIds = await this.fileQueueService.addMultipleToQueue(
-				filePaths,
-				selectedPriority.value
+				filePaths
 			);
-
-			const priorityName = selectedPriority.label.toLowerCase();
 
 			vscode.window.showInformationMessage(
-				`Added ${itemIds.length} file${itemIds.length !== 1 ? 's' : ''} to queue with ${priorityName} priority`
+				`Added ${itemIds.length} file${itemIds.length !== 1 ? 's' : ''} to queue`
 			);
 
-			this.logService.debug(`Added ${itemIds.length} files to queue with priority ${selectedPriority.value}`);
+			this.logService.debug(`Added ${itemIds.length} files to queue`);
 		} catch (error) {
-			this.logService.error('Failed to add files with priority:', error);
+			this.logService.error('Failed to add files:', error);
 			vscode.window.showErrorMessage(`Failed to add files to queue: ${error}`);
 		}
 	}
@@ -112,7 +93,7 @@ export class FileQueueCommands {
 			}
 
 			const selectedUris = selectedItems.map(item => item.uri);
-			await this.addFilesWithPriority(selectedUris);
+			await this.addFiles(selectedUris);
 		} catch (error) {
 			this.logService.error('Failed to add files from workspace:', error);
 			vscode.window.showErrorMessage(`Failed to add files from workspace: ${error}`);
