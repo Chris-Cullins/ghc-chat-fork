@@ -5,6 +5,7 @@
 
 import { createServiceIdentifier } from '../../../util/common/services';
 import { Event } from '../../../util/vs/base/common/event';
+import { CancellationToken } from '../../../util/vs/base/common/cancellation';
 
 /**
  * Represents the status of a file in the queue
@@ -197,6 +198,19 @@ export interface QueueProcessingOptions {
 	 * Default: 60000ms (60 seconds)
 	 */
 	chatWaitTime?: number;
+}
+
+/**
+ * Interface for processing individual files
+ */
+export interface IFileProcessor {
+	/**
+	 * Process a single file item
+	 * @param item The file item to process
+	 * @param cancellationToken Cancellation token
+	 * @returns Promise resolving to processing result
+	 */
+	processFile(item: FileQueueItem, cancellationToken: CancellationToken): Promise<ProcessingResult>;
 }
 
 /**
@@ -426,6 +440,34 @@ export interface IFileQueueService {
 	 * @returns True if a last run is available to repeat
 	 */
 	canRepeatLastRun(): boolean;
+
+	// Chat completion integration
+
+	/**
+	 * Signal that chat processing has completed for a specific file.
+	 * This allows the queue to immediately proceed to the next file.
+	 * @param filePath Path of the file that completed chat processing
+	 */
+	signalChatCompletion(filePath: string): void;
+
+	/**
+	 * Signal that chat processing has completed for the currently processing file.
+	 * This is a convenience method when the caller doesn't know the specific file path.
+	 */
+	signalCurrentChatCompletion(): void;
+
+	/**
+	 * Get information about active chat sessions being monitored.
+	 * @returns Array of active chat session information
+	 */
+	getActiveChatSessions(): Array<{ filePath: string; startTime: number; duration: number }>;
+
+	/**
+	 * Set the file processor implementation.
+	 * This allows the extension layer to provide VS Code-specific processing logic.
+	 * @param processor The file processor implementation
+	 */
+	setFileProcessor(processor: IFileProcessor): void;
 
 }
 

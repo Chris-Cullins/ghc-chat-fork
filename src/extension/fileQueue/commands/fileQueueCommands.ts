@@ -257,4 +257,106 @@ export class FileQueueCommands {
 		}
 	}
 
+	// Chat completion signaling commands
+
+	/**
+	 * Signal that the current chat processing has completed
+	 */
+	async signalChatComplete(): Promise<void> {
+		try {
+			this.fileQueueService.signalCurrentChatCompletion();
+			this.logService.info('Signaled chat completion for current file');
+
+			// Show a subtle notification
+			vscode.window.setStatusBarMessage('Queue: Chat completion signaled', 3000);
+		} catch (error) {
+			this.logService.error('Failed to signal chat completion:', error);
+			vscode.window.showErrorMessage(`Failed to signal chat completion: ${error}`);
+		}
+	}
+
+	/**
+	 * Signal that chat processing has completed for a specific file
+	 */
+	async signalChatCompleteForFile(filePath?: string): Promise<void> {
+		try {
+			if (!filePath) {
+				// Show quick pick of active chat sessions
+				const activeSessions = this.fileQueueService.getActiveChatSessions();
+
+				if (activeSessions.length === 0) {
+					vscode.window.showInformationMessage('No active chat sessions to signal completion for');
+					return;
+				}
+
+				const sessionItems = activeSessions.map(session => ({
+					label: vscode.workspace.asRelativePath(session.filePath),
+					description: `${Math.round(session.duration / 1000)}s active`,
+					detail: session.filePath,
+					filePath: session.filePath
+				}));
+
+				const selected = await vscode.window.showQuickPick(sessionItems, {
+					placeHolder: 'Select file to signal chat completion for'
+				});
+
+				if (!selected) {
+					return;
+				}
+
+				filePath = selected.filePath;
+			}
+
+			this.fileQueueService.signalChatCompletion(filePath);
+			this.logService.info(`Signaled chat completion for file: ${filePath}`);
+
+			// Show a notification with the file name
+			const fileName = vscode.workspace.asRelativePath(filePath);
+			vscode.window.setStatusBarMessage(`Queue: Chat completion signaled for ${fileName}`, 3000);
+		} catch (error) {
+			this.logService.error('Failed to signal chat completion for file:', error);
+			vscode.window.showErrorMessage(`Failed to signal chat completion: ${error}`);
+		}
+	}
+
+	/**
+	 * Show information about active chat sessions
+	 */
+	async showActiveChatSessions(): Promise<void> {
+		try {
+			const activeSessions = this.fileQueueService.getActiveChatSessions();
+
+			if (activeSessions.length === 0) {
+				vscode.window.showInformationMessage('No active chat sessions');
+				return;
+			}
+
+			const sessionDetails = activeSessions.map(session => {
+				const fileName = vscode.workspace.asRelativePath(session.filePath);
+				const duration = Math.round(session.duration / 1000);
+				return `• ${fileName} (${duration}s active)`;
+			}).join('\n');
+
+			const message = `Active Chat Sessions (${activeSessions.length}):\n${sessionDetails}`;
+
+			// Show as information message with action to signal completion
+			const selected = await vscode.window.showInformationMessage(
+				`${activeSessions.length} active chat session${activeSessions.length !== 1 ? 's' : ''}`,
+				'Signal Completion for One', 'Signal All Complete'
+			);
+
+			if (selected === 'Signal Completion for One') {
+				await this.signalChatCompleteForFile();
+			} else if (selected === 'Signal All Complete') {
+				for (const session of activeSessions) {
+					this.fileQueueService.signalChatCompletion(session.filePath);
+				}
+				vscode.window.showInformationMessage(`Signaled completion for all ${activeSessions.length} chat sessions`);
+			}
+		} catch (error) {
+			this.logService.error('Failed to show active chat sessions:', error);
+			vscode.window.showErrorMessage(`Failed to show active chat sessions: ${error}`);
+		}
+	}
+
 }

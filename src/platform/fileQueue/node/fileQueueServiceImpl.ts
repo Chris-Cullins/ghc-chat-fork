@@ -15,6 +15,7 @@ import { Uri } from '../../../vscodeTypes';
 import {
 	FileQueueItem,
 	FileQueueItemStatus,
+	IFileProcessor,
 	IFileQueueService,
 	ItemProcessedEvent,
 	LastRunInfo,
@@ -48,6 +49,13 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 	private _processingOptions: QueueProcessingOptions = {};
 	private _lastRun?: LastRunInfo;
 	private _isInitialized = false;
+
+	// Chat completion tracking
+	private _chatCompletionCallbacks = new Map<string, () => void>();
+	private _chatStartTimestamps = new Map<string, number>();
+
+	// File processor (injected from extension layer)
+	private _fileProcessor?: IFileProcessor;
 
 	// Events
 	private readonly _onQueueChanged = this._register(new Emitter<QueueChangeEvent>());
@@ -515,8 +523,8 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 				for (const item of storage.items) {
 					// Convert date strings back to Date objects
 					item.addedAt = new Date(item.addedAt);
-					if (item.processedAt) {item.processedAt = new Date(item.processedAt);}
-					if (item.completedAt) {item.completedAt = new Date(item.completedAt);}
+					if (item.processedAt) { item.processedAt = new Date(item.processedAt); }
+					if (item.completedAt) { item.completedAt = new Date(item.completedAt); }
 
 					this._items.set(item.id, item);
 				}
@@ -574,8 +582,8 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 			for (const item of imported.items) {
 				// Convert date strings back to Date objects
 				item.addedAt = new Date(item.addedAt);
-				if (item.processedAt) {item.processedAt = new Date(item.processedAt);}
-				if (item.completedAt) {item.completedAt = new Date(item.completedAt);}
+				if (item.processedAt) { item.processedAt = new Date(item.processedAt); }
+				if (item.completedAt) { item.completedAt = new Date(item.completedAt); }
 
 				// Generate new ID if merging to avoid conflicts
 				if (merge) {
@@ -786,189 +794,136 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 	}
 
 	private async _processFileItem(item: FileQueueItem, cancellationToken: CancellationToken): Promise<ProcessingResult> {
-		const startTime = Date.now();
+		// Record the start of chat interaction for this file
+		this._chatStartTimestamps.set(item.filePath, Date.now());
 
-		try {
-			this.logService.info(`DEBUG: Starting _processFileItem for: ${item.filePath}`);
-
-			// Read the file content
-			const fileUri = Uri.file(item.filePath);
-			let fileContent: string;
-
-			try {
-				this.logService.info(`DEBUG: Reading file: ${item.filePath}`);
-				const fileData = await this.fileSystemService.readFile(fileUri);
-				fileContent = fileData.toString();
-				this.logService.info(`DEBUG: File read successfully, content length: ${fileContent.length}`);
-			} catch (error) {
-				this.logService.error(`DEBUG: Failed to read file: ${item.filePath}`, error);
-				throw new Error(`Failed to read file: ${error}`);
-			}
-
-			if (cancellationToken.isCancellationRequested) {
-				this.logService.info(`DEBUG: Processing cancelled for: ${item.filePath}`);
-				throw new Error('Processing was cancelled');
-			}
-
-			// Create a chat message that includes the file content
-			const operation = item.metadata?.operation || 'analyze';
-			const fileName = item.fileName;
-			this.logService.info(`DEBUG: Creating chat query for operation: ${operation}, fileName: ${fileName}`);
-			const chatQuery = this._createChatQuery(operation, fileName, fileContent);
-			this.logService.info(`DEBUG: Chat query created, length: ${chatQuery.length}`);
-
-			// Attach file to chat and open with processing instruction
-			try {
-				this.logService.info(`DEBUG: About to call _openChatWithFile`);
-				await this._openChatWithFile(item.filePath, item.fileName, chatQuery);
-				this.logService.info(`DEBUG: _openChatWithFile completed successfully`);
-			} catch (error) {
-				this.logService.error(`DEBUG: _openChatWithFile failed:`, error);
-				throw new Error(`Failed to attach file to chat: ${error}`);
-			}
-
-			// Wait for user to indicate they're ready for the next file
-			// This ensures we don't overwhelm the chat system and allows proper sequential processing
-			this.logService.info(`DEBUG: Waiting for chat processing completion signal for: ${item.filePath}`);
-			await this._waitForChatCompletion(item.filePath, cancellationToken);
-			this.logService.info(`DEBUG: Chat processing completion confirmed for: ${item.filePath}`);
-
-			const duration = Date.now() - startTime;
-			this.logService.info(`DEBUG: Processing completed for ${item.filePath}, duration: ${duration}ms`);
-
-			return {
-				success: true,
-				message: `File ${fileName} attached to chat and processing completed`,
-				duration,
-				data: {
-					operation,
-					fileName,
-					fileSize: fileContent.length,
-					filePath: item.filePath
-				}
-			};
-
-		} catch (error) {
-			const duration = Date.now() - startTime;
+		// Delegate to the processor (will be injected from extension layer)
+		if (this._fileProcessor) {
+			return await this._fileProcessor.processFile(item, cancellationToken);
+		} else {
+			// Fallback for when no processor is available (shouldn't happen in normal operation)
+			this.logService.warn(`No file processor available for: ${item.filePath}`);
 			return {
 				success: false,
-				message: `Failed to process file: ${error instanceof Error ? error.message : String(error)}`,
-				duration,
-				error: error instanceof Error ? error : new Error(String(error))
+				message: 'No file processor available - this indicates a configuration issue',
+				duration: 0,
+				error: new Error('No file processor available')
 			};
 		}
 	}
 
-	private _createChatQuery(operation: string, fileName: string, fileContent: string): string {
-		// Per the requirement: only inject the file content, nothing else
-		return `${fileName} is your prompt`;
-	}
-
-	private async _openChatWithFile(filePath: string, fileName: string, chatPrompt: string): Promise<void> {
-		try {
-			this.logService.info(`Opening Copilot Chat for file: ${filePath}`);
-
-			// First, attach the file to chat
-			this.logService.info(`${filePath} is your prompt`);
-			// NOTE: In a real implementation, this would call VS Code commands
-			// For now, we're just logging since we're in the node layer
-			// The actual VS Code integration happens in the extension layer
-			// await vscode.commands.executeCommand('workbench.action.chat.attachFile', Uri.file(filePath));
-
-			// Small delay to simulate file attachment
-			await new Promise(resolve => setTimeout(resolve, 500));
-
-			// Then open the chat view with a pre-filled query
-			this.logService.info('Opening Copilot Chat view with analysis query');
-			// await vscode.commands.executeCommand('workbench.action.chat.open', {
-			//     query: chatPrompt
-			// });
-
-			this.logService.info(`Successfully opened Copilot Chat with file: ${fileName}`);
-
-		} catch (error) {
-			this.logService.error(`Failed to open Copilot Chat for file: ${filePath}`, error);
-			throw error;
-		}
-	}
 
 	private async _waitForChatCompletion(filePath: string, cancellationToken: CancellationToken): Promise<void> {
-		// Strategy: Use a hybrid approach that combines intelligent monitoring with user control
-		// 1. Wait for a minimum time for chat to process
-		// 2. Use heuristics to detect likely completion
-		// 3. Allow user to manually proceed via commands
-		// 4. Fall back to configurable timeout as safety net
+		// Strategy: Use a promise-based approach with multiple completion detection mechanisms
+		// 1. Wait for explicit completion signal (if available)
+		// 2. Monitor for extended inactivity periods
+		// 3. Use configurable maximum wait time as safety net
+		// 4. Allow for long-running operations (20+ minute jobs)
 
-		const minWaitTime = 3000; // 3 seconds minimum wait for chat to start
-		const maxWaitTime = this._processingOptions.chatWaitTime ?? 60000; // Default 60 seconds or configured
-		const pollInterval = 2000; // Check every 2 seconds
+		const minWaitTime = 5000; // 5 seconds minimum wait for chat to start
+		const maxWaitTime = this._processingOptions.chatWaitTime ?? 25 * 60 * 1000; // Default 25 minutes (handle 20min+ jobs)
+		const inactivityThreshold = 3600000; // 1 hour of inactivity before considering completion (backup only)
+		const pollInterval = 5000; // Check every 5 seconds
 		const startTime = Date.now();
 
-		this.logService.info(`DEBUG: Smart waiting for chat completion: ${filePath}`);
+		this.logService.info(`DEBUG: Enhanced waiting for chat completion: ${filePath} (maxWait: ${maxWaitTime}ms)`);
 
 		try {
-			// Phase 1: Minimum wait time for chat to start processing
-			this.logService.info(`DEBUG: Initial wait (${minWaitTime}ms) for chat to start processing: ${filePath}`);
+			// Phase 1: Minimum wait time for chat to initialize
+			this.logService.info(`DEBUG: Initial wait (${minWaitTime}ms) for chat to initialize: ${filePath}`);
 			await this._delay(minWaitTime, cancellationToken);
 
-			// Phase 2: Intelligent monitoring with early completion detection
-			let chatCompleted = false;
-			let consecutiveIdleChecks = 0;
-			const requiredIdleChecks = 2; // Require 2 consecutive idle checks
+			// Phase 2: Wait for completion with multiple detection mechanisms
+			const completionPromise = new Promise<void>((resolve, reject) => {
+				let lastActivityTime = Date.now();
+				let pollTimer: NodeJS.Timeout | undefined;
+				let maxTimeoutTimer: NodeJS.Timeout | undefined;
 
-			while (!chatCompleted && !cancellationToken.isCancellationRequested) {
-				const elapsed = Date.now() - startTime;
+				// Set up callback for explicit completion signal
+				this._chatCompletionCallbacks.set(filePath, () => {
+					this.logService.info(`DEBUG: Explicit completion signal received for: ${filePath}`);
+					cleanup();
+					resolve();
+				});
 
-				// Check if user manually signaled completion or we've reached max wait time
-				if (elapsed > maxWaitTime) {
-					this.logService.info(`DEBUG: Chat completion timeout reached for: ${filePath} after ${elapsed}ms - proceeding to next file`);
-					break;
-				}
+				const cleanup = () => {
+					if (pollTimer) {
+						clearTimeout(pollTimer);
+						pollTimer = undefined;
+					}
+					if (maxTimeoutTimer) {
+						clearTimeout(maxTimeoutTimer);
+						maxTimeoutTimer = undefined;
+					}
+					this._chatCompletionCallbacks.delete(filePath);
+					this._chatStartTimestamps.delete(filePath);
+				};
 
-				// Check if chat appears to be idle/complete using heuristics
-				const isChatIdle = await this._isChatIdle();
+				// Set up maximum timeout
+				maxTimeoutTimer = setTimeout(() => {
+					const elapsed = Date.now() - startTime;
+					this.logService.info(`DEBUG: Maximum wait time reached for: ${filePath} after ${elapsed}ms`);
+					cleanup();
+					resolve(); // Don't reject, just proceed to next file
+				}, maxWaitTime);
 
-				if (isChatIdle) {
-					consecutiveIdleChecks++;
-					this.logService.debug(`DEBUG: Chat idle detected (${consecutiveIdleChecks}/${requiredIdleChecks}): ${filePath}`);
-
-					if (consecutiveIdleChecks >= requiredIdleChecks) {
-						// Chat appears idle, but wait a bit longer to be sure
-						const idleConfirmationWait = 5000; // 5 seconds
-						this.logService.info(`DEBUG: Chat idle detected, waiting ${idleConfirmationWait}ms for confirmation: ${filePath}`);
-						await this._delay(idleConfirmationWait, cancellationToken);
-
-						// Check one more time after confirmation wait
-						const stillIdle = await this._isChatIdle();
-						if (stillIdle) {
-							chatCompleted = true;
-							this.logService.info(`DEBUG: Chat completion confirmed for: ${filePath} after ${elapsed + idleConfirmationWait}ms`);
-						} else {
-							// Reset if chat became active again
-							consecutiveIdleChecks = 0;
-							this.logService.debug(`DEBUG: Chat became active again during confirmation: ${filePath}`);
+				// Set up polling for inactivity detection
+				const poll = async () => {
+					try {
+						if (cancellationToken.isCancellationRequested) {
+							cleanup();
+							reject(new Error('Processing was cancelled'));
+							return;
 						}
+
+						const elapsed = Date.now() - startTime;
+						const timeSinceActivity = Date.now() - lastActivityTime;
+
+						// Check if we've had sufficient inactivity and enough total time has passed
+						const minimumProcessingTime = 10000; // At least 10 seconds total processing
+						if (elapsed >= minimumProcessingTime && timeSinceActivity >= inactivityThreshold) {
+							this.logService.info(`DEBUG: Inactivity-based completion detected for: ${filePath} after ${elapsed}ms (${timeSinceActivity}ms since last activity)`);
+							cleanup();
+							resolve();
+							return;
+						}
+
+						// Check for signs of activity (this is where we'd add more sophisticated detection)
+						const hasActivity = await this._detectChatActivity(filePath);
+						if (hasActivity) {
+							lastActivityTime = Date.now();
+							this.logService.debug(`DEBUG: Chat activity detected for: ${filePath}, resetting inactivity timer`);
+						}
+
+						// Schedule next poll
+						pollTimer = setTimeout(poll, pollInterval);
+
+					} catch (error) {
+						cleanup();
+						reject(error);
 					}
+				};
+
+				// Start polling
+				pollTimer = setTimeout(poll, pollInterval);
+
+				// Handle cancellation
+				if (cancellationToken.isCancellationRequested) {
+					cleanup();
+					reject(new Error('Processing was cancelled'));
 				} else {
-					// Reset counter if chat is still active
-					if (consecutiveIdleChecks > 0) {
-						this.logService.debug(`DEBUG: Chat still active, resetting idle counter: ${filePath}`);
-					}
-					consecutiveIdleChecks = 0;
+					const cancelListener = cancellationToken.onCancellationRequested(() => {
+						cleanup();
+						cancelListener.dispose();
+						reject(new Error('Processing was cancelled'));
+					});
 				}
+			});
 
-				if (!chatCompleted && !cancellationToken.isCancellationRequested) {
-					await this._delay(pollInterval, cancellationToken);
-				}
-			}
-
-			if (cancellationToken.isCancellationRequested) {
-				this.logService.info(`DEBUG: Chat completion monitoring cancelled for: ${filePath}`);
-				throw new Error('Processing was cancelled');
-			}
+			await completionPromise;
 
 			const totalElapsed = Date.now() - startTime;
-			this.logService.info(`DEBUG: Chat completion wait finished for: ${filePath} after ${totalElapsed}ms`);
+			this.logService.info(`DEBUG: Chat completion monitoring finished for: ${filePath} after ${totalElapsed}ms`);
 
 		} catch (error) {
 			if (cancellationToken.isCancellationRequested) {
@@ -976,39 +931,86 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 			} else {
 				this.logService.warn(`DEBUG: Chat completion monitoring error for: ${filePath}: ${error}`);
 			}
+			// Clean up any lingering callbacks
+			this._chatCompletionCallbacks.delete(filePath);
+			this._chatStartTimestamps.delete(filePath);
 			throw error;
 		}
 	}
 
-	private async _isChatIdle(): Promise<boolean> {
+	private async _detectChatActivity(filePath: string): Promise<boolean> {
 		try {
-			// Strategy: Use multiple heuristics to detect if chat has likely completed
+			// Strategy: Use multiple heuristics to detect ongoing chat activity
 			// Since we don't have direct access to VS Code's internal chat state,
-			// we'll use observable indicators:
+			// we use observable indicators and statistical patterns
 
-			// 1. Simple heuristic: Always return true after the minimum wait time
-			//    This allows the consecutive idle check logic to work properly
-			//    The real "smart" behavior comes from the consecutive checks and confirmation wait
+			const chatStartTime = this._chatStartTimestamps.get(filePath);
+			if (!chatStartTime) {
+				return false; // No record of chat start, assume no activity
+			}
 
-			// For now, we'll implement a conservative approach that returns true
-			// most of the time, allowing the higher-level logic (consecutive checks, 
-			// confirmation wait) to provide the real intelligence.
+			const timeSinceStart = Date.now() - chatStartTime;
 
-			// In a more sophisticated implementation, we could:
-			// - Monitor VS Code's window title for "loading" indicators
-			// - Check system CPU usage (chat processing might cause spikes)
-			// - Monitor network activity if we can detect chat API calls
-			// - Track document/editor focus changes as user interaction signals
+			// Heuristic 1: Very recent chat starts are likely active
+			if (timeSinceStart < 15000) { // First 15 seconds
+				return true;
+			}
 
-			// For this implementation, we'll rely primarily on the timeout-based
-			// approach with smart confirmation logic
+			// Heuristic 2: For longer-running operations, use statistical patterns
+			// Most chat responses complete within certain time windows, but some can be very long
+
+			// Short operations (< 2 minutes) - likely completed if no explicit signals
+			if (timeSinceStart > 120000) { // 2 minutes
+				// For operations longer than 2 minutes, we assume they might be long-running
+				// and require more sophisticated detection or user intervention
+
+				// Heuristic 3: Check if this is likely a long-running operation
+				// (this is where we could add file-type-specific logic)
+				const isLikelyLongRunning = this._isLikelyLongRunningOperation(filePath);
+
+				if (isLikelyLongRunning) {
+					// For long-running operations, be more conservative about activity detection
+					// Assume activity for up to 20 minutes, then rely on inactivity timeout
+					return timeSinceStart < 20 * 60 * 1000; // 20 minutes
+				} else {
+					// For normal operations, assume they're done after 2 minutes without explicit completion
+					return false;
+				}
+			}
+
+			// Default: assume activity for the first 2 minutes
 			return true;
 
 		} catch (error) {
-			this.logService.warn(`DEBUG: Error checking chat idle state: ${error}`);
-			// If we can't determine the state, assume it's idle to allow progression
+			this.logService.warn(`DEBUG: Error detecting chat activity for ${filePath}: ${error}`);
+			// If we can't determine activity, err on the side of caution and assume activity
 			return true;
 		}
+	}
+
+	private _isLikelyLongRunningOperation(filePath: string): boolean {
+		// Heuristics to determine if this file/operation is likely to take a long time
+		const fileName = path.basename(filePath).toLowerCase();
+		const fileExt = path.extname(filePath).toLowerCase();
+
+		// File patterns that often indicate long-running operations
+		const longRunningPatterns = [
+			// Large data files
+			/\.json$/, /\.csv$/, /\.xml$/, /\.sql$/,
+			// Documentation that might require extensive generation
+			/readme/i, /documentation/i, /spec/i, /requirements/i,
+			// Complex code files
+			/\.py$/, /\.java$/, /\.cpp$/, /\.c$/,
+			// Configuration files that might require extensive analysis
+			/config/i, /settings/i, /\.yaml$/, /\.yml$/
+		];
+
+		// Check file size if available (larger files often take longer)
+		// This would require file stat info, which we could add if needed
+
+		return longRunningPatterns.some(pattern =>
+			pattern.test(fileName) || pattern.test(fileExt)
+		);
 	}
 
 
@@ -1164,7 +1166,7 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 				const itemId = await this.addToQueue(filePath, metadata);
 				itemIds.push(itemId);
 			} catch (error) {
-				this.logService.warn(`Failed to add file from last run: ${filePath}`, error);
+				this.logService.warn(`Failed to add file from last run: ${filePath}. Error: ${error}`);
 			}
 		}
 
@@ -1190,6 +1192,57 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 
 	canRepeatLastRun(): boolean {
 		return this._lastRun !== undefined && this._lastRun.filePaths.length > 0;
+	}
+
+	// Chat completion signaling methods (for extension layer integration)
+
+	/**
+	 * Signal that chat processing has completed for a specific file.
+	 * This allows the queue to immediately proceed to the next file.
+	 */
+	signalChatCompletion(filePath: string): void {
+		const callback = this._chatCompletionCallbacks.get(filePath);
+		if (callback) {
+			this.logService.info(`Received explicit chat completion signal for: ${filePath}`);
+			callback();
+		} else {
+			this.logService.debug(`No active chat completion listener for: ${filePath}`);
+		}
+	}
+
+	/**
+	 * Signal that chat processing has completed for the currently processing file.
+	 * This is a convenience method when the caller doesn't know the specific file path.
+	 */
+	signalCurrentChatCompletion(): void {
+		const currentItemId = this._queueState.currentItemId;
+		if (currentItemId) {
+			const currentItem = this._items.get(currentItemId);
+			if (currentItem) {
+				this.signalChatCompletion(currentItem.filePath);
+			} else {
+				this.logService.warn(`Could not find current item for chat completion signal: ${currentItemId}`);
+			}
+		} else {
+			this.logService.debug(`No current item for chat completion signal`);
+		}
+	}
+
+	/**
+	 * Get information about active chat sessions being monitored.
+	 */
+	getActiveChatSessions(): Array<{ filePath: string; startTime: number; duration: number }> {
+		const now = Date.now();
+		return Array.from(this._chatStartTimestamps.entries()).map(([filePath, startTime]) => ({
+			filePath,
+			startTime,
+			duration: now - startTime
+		}));
+	}
+
+	setFileProcessor(processor: IFileProcessor): void {
+		this._fileProcessor = processor;
+		this.logService.debug('File processor set for queue service');
 	}
 
 	private _handleError(context: string, message: string, severity: 'warning' | 'error' | 'critical', recoverable: boolean): void {

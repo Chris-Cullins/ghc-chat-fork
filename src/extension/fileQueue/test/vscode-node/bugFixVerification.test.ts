@@ -5,7 +5,7 @@
 
 import { beforeEach, describe, expect, suite, test, vi } from 'vitest';
 import * as vscode from 'vscode';
-import { FileQueueWebviewProvider } from '../../webview/vscode-node/fileQueueWebviewProvider';
+import { FileQueueWebviewProvider } from '../../webview/fileQueueWebviewProvider';
 import { FileQueueItemStatus, IFileQueueService } from '../../../../platform/fileQueue/common/fileQueueService';
 import { IVSCodeExtensionContext } from '../../../../platform/extContext/common/extensionContext';
 import { ILogService } from '../../../../platform/log/common/logService';

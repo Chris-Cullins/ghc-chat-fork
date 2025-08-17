@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as l10n from '@vscode/l10n';
+import * as vscode from 'vscode';
 import type { ChatRequest, ChatRequestTurn2, ChatResponseStream, ChatResult, Location } from 'vscode';
 import { IAuthenticationChatUpgradeService } from '../../../platform/authentication/common/authenticationUpgrade';
 import { getChatParticipantIdFromName, getChatParticipantNameFromId, workspaceAgentName } from '../../../platform/chat/common/chatAgents';
@@ -274,6 +275,9 @@ export class ChatParticipantRequestHandler {
 				}
 			} satisfies ICopilotChatResult, true);
 
+			// Check if this is a file queue request and signal completion
+			this._signalFileQueueCompletionIfApplicable();
+
 			return <ICopilotChatResult>result;
 
 		} catch (err) {
@@ -299,6 +303,32 @@ export class ChatParticipantRequestHandler {
 		}
 
 		return command?.intent ?? this._intentService.unknownIntent;
+	}
+
+	/**
+	 * Signals file queue completion if this appears to be a file queue request
+	 */
+	private _signalFileQueueCompletionIfApplicable(): void {
+		try {
+			// Check if this request matches the file queue pattern
+			const prompt = this.request.prompt?.trim();
+			if (prompt && prompt.startsWith('Please process ') && prompt.includes('.')) {
+				// This looks like a file queue request - signal completion
+				this._logService.info(`Detected file queue completion for prompt: "${prompt}"`);
+
+				// Use VS Code command API to signal completion
+				// We don't await this as it's fire-and-forget
+				vscode.commands.executeCommand('github.copilot.fileQueue.signalChatComplete')
+					.then(() => {
+						this._logService.debug('Successfully signaled file queue completion');
+					})
+					.catch(error => {
+						this._logService.warn('Failed to signal file queue completion:', error);
+					});
+			}
+		} catch (error) {
+			this._logService.warn('Error in file queue completion signaling:', error);
+		}
 	}
 
 	private checkCommandUsage(command: CommandDetails | undefined): ChatResult | undefined {

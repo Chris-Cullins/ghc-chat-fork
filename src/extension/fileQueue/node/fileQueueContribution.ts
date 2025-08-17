@@ -9,12 +9,14 @@ import { ILogService } from '../../../platform/log/common/logService';
 import { Disposable } from '../../../util/vs/base/common/lifecycle';
 import { IInstantiationService } from '../../../util/vs/platform/instantiation/common/instantiation';
 import { IExtensionContribution } from '../../common/contributions';
-import { FileQueueWebviewProvider } from '../webview/vscode-node/fileQueueWebviewProvider';
+import { FileQueueWebviewProvider } from '../webview/fileQueueWebviewProvider';
+import { FileQueueProcessor } from './fileQueueProcessor';
 
 export class FileQueueContribution extends Disposable implements IExtensionContribution {
 	readonly id = 'fileQueueContribution';
 
 	private _webviewProvider: FileQueueWebviewProvider;
+	private _fileProcessor: FileQueueProcessor;
 
 	constructor(
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
@@ -24,6 +26,10 @@ export class FileQueueContribution extends Disposable implements IExtensionContr
 		super();
 
 		this.logService.debug('FileQueueContribution initializing...');
+
+		// Create and set up the file processor (extension layer -> platform layer)
+		this._fileProcessor = new FileQueueProcessor(this.fileQueueService, this.logService);
+		this.fileQueueService.setFileProcessor(this._fileProcessor);
 
 		// Create and register the webview provider
 		this._webviewProvider = this._register(
@@ -330,6 +336,106 @@ export class FileQueueContribution extends Disposable implements IExtensionContr
 				} catch (error) {
 					this.logService.error('Failed to import queue:', error);
 					vscode.window.showErrorMessage(`Failed to import queue: ${error}`);
+				}
+			}
+		));
+
+		// Chat completion commands
+
+		// Command to signal chat completion for current file
+		this._register(vscode.commands.registerCommand(
+			'github.copilot.fileQueue.signalChatComplete',
+			async () => {
+				try {
+					this.fileQueueService.signalCurrentChatCompletion();
+					this.logService.info('Signaled chat completion for current file');
+					vscode.window.setStatusBarMessage('Queue: Chat completion signaled', 3000);
+				} catch (error) {
+					this.logService.error('Failed to signal chat completion:', error);
+					vscode.window.showErrorMessage(`Failed to signal chat completion: ${error}`);
+				}
+			}
+		));
+
+		// Command to signal chat completion for specific file
+		this._register(vscode.commands.registerCommand(
+			'github.copilot.fileQueue.signalChatCompleteForFile',
+			async (filePath?: string) => {
+				try {
+					if (!filePath) {
+						// Show quick pick of active chat sessions
+						const activeSessions = this.fileQueueService.getActiveChatSessions();
+
+						if (activeSessions.length === 0) {
+							vscode.window.showInformationMessage('No active chat sessions to signal completion for');
+							return;
+						}
+
+						const sessionItems = activeSessions.map(session => ({
+							label: vscode.workspace.asRelativePath(session.filePath),
+							description: `${Math.round(session.duration / 1000)}s active`,
+							detail: session.filePath,
+							filePath: session.filePath
+						}));
+
+						const selected = await vscode.window.showQuickPick(sessionItems, {
+							placeHolder: 'Select file to signal chat completion for'
+						});
+
+						if (!selected) {
+							return;
+						}
+
+						filePath = selected.filePath;
+					}
+
+					this.fileQueueService.signalChatCompletion(filePath);
+					this.logService.info(`Signaled chat completion for file: ${filePath}`);
+
+					const fileName = vscode.workspace.asRelativePath(filePath);
+					vscode.window.setStatusBarMessage(`Queue: Chat completion signaled for ${fileName}`, 3000);
+				} catch (error) {
+					this.logService.error('Failed to signal chat completion for file:', error);
+					vscode.window.showErrorMessage(`Failed to signal chat completion: ${error}`);
+				}
+			}
+		));
+
+		// Command to show active chat sessions
+		this._register(vscode.commands.registerCommand(
+			'github.copilot.fileQueue.showActiveChatSessions',
+			async () => {
+				try {
+					const activeSessions = this.fileQueueService.getActiveChatSessions();
+
+					if (activeSessions.length === 0) {
+						vscode.window.showInformationMessage('No active chat sessions');
+						return;
+					}
+
+					const sessionDetails = activeSessions.map(session => {
+						const fileName = vscode.workspace.asRelativePath(session.filePath);
+						const duration = Math.round(session.duration / 1000);
+						return `• ${fileName} (${duration}s active)`;
+					}).join('\n');
+
+					// Show as information message with action to signal completion
+					const selected = await vscode.window.showInformationMessage(
+						`${activeSessions.length} active chat session${activeSessions.length !== 1 ? 's' : ''}`,
+						'Signal Completion for One', 'Signal All Complete'
+					);
+
+					if (selected === 'Signal Completion for One') {
+						await vscode.commands.executeCommand('github.copilot.fileQueue.signalChatCompleteForFile');
+					} else if (selected === 'Signal All Complete') {
+						for (const session of activeSessions) {
+							this.fileQueueService.signalChatCompletion(session.filePath);
+						}
+						vscode.window.showInformationMessage(`Signaled completion for all ${activeSessions.length} chat sessions`);
+					}
+				} catch (error) {
+					this.logService.error('Failed to show active chat sessions:', error);
+					vscode.window.showErrorMessage(`Failed to show active chat sessions: ${error}`);
 				}
 			}
 		));
