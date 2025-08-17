@@ -5,9 +5,9 @@
 
 import { beforeEach, describe, expect, suite, test, vi } from 'vitest';
 import * as vscode from 'vscode';
-import { FileQueueWebviewProvider } from '../../webview/fileQueueWebviewProvider';
+import { FileQueueWebviewProvider } from '../../webview/vscode-node/fileQueueWebviewProvider';
 import { FileQueueServiceImpl } from '../../../../platform/fileQueue/node/fileQueueServiceImpl';
-import { FileQueueItemStatus, IFileQueueService, QueueItemPriority } from '../../../../platform/fileQueue/common/fileQueueService';
+import { FileQueueItemStatus, IFileQueueService } from '../../../../platform/fileQueue/common/fileQueueService';
 import { IVSCodeExtensionContext } from '../../../../platform/extContext/common/extensionContext';
 import { IFileSystemService } from '../../../../platform/filesystem/common/fileSystemService';
 import { ILogService } from '../../../../platform/log/common/logService';
@@ -214,7 +214,6 @@ suite('FileQueue Integration Tests', () => {
 			]);
 
 			mockVSCode.window.showQuickPick
-				.mockResolvedValueOnce({ label: 'High', value: QueueItemPriority.High }) // Priority selection
 				.mockResolvedValueOnce({ label: 'Analyze', value: 'analyze' }); // Operation selection
 
 			// Act: Simulate user clicking Add Files button
@@ -241,7 +240,7 @@ suite('FileQueue Integration Tests', () => {
 			// Verify files were actually added to the service
 			const items = fileQueueService.getQueueItems();
 			expect(items.length).toBe(2);
-			expect(items.every(item => item.priority === QueueItemPriority.High)).toBe(true);
+			expect(items.every(item => item.priority === )).toBe(true);
 			expect(items.every(item => item.operation === 'analyze')).toBe(true);
 		});
 
@@ -257,7 +256,7 @@ suite('FileQueue Integration Tests', () => {
 				type: 'addMultipleFiles',
 				data: {
 					filePaths: ['/test/file1.ts', '/test/file2.js'],
-					priority: QueueItemPriority.Normal,
+					priority: 
 					operation: 'format'
 				}
 			});
@@ -268,7 +267,7 @@ suite('FileQueue Integration Tests', () => {
 			// Assert: Verify files were added and webview was updated
 			const items = fileQueueService.getQueueItems();
 			expect(items.length).toBe(2);
-			expect(items.every(item => item.priority === QueueItemPriority.Normal)).toBe(true);
+			expect(items.every(item => item.priority === )).toBe(true);
 			expect(items.every(item => item.operation === 'format')).toBe(true);
 
 			// Check that success message was sent to webview
@@ -304,7 +303,7 @@ suite('FileQueue Integration Tests', () => {
 				type: 'addMultipleFiles',
 				data: {
 					filePaths: ['/test/file1.ts', '/test/file2.js'],
-					priority: QueueItemPriority.Normal
+					priority: 
 				}
 			});
 
@@ -349,7 +348,7 @@ suite('FileQueue Integration Tests', () => {
 				type: 'addMultipleFiles',
 				data: {
 					filePaths: ['/test/file1.ts', '/test/file2.js'],
-					priority: QueueItemPriority.Normal
+					priority: 
 				}
 			});
 
@@ -415,7 +414,7 @@ suite('FileQueue Integration Tests', () => {
 				type: 'addFile',
 				data: {
 					filePath: '/nonexistent/file.ts',
-					priority: QueueItemPriority.Normal
+					priority: 
 				}
 			});
 
@@ -445,7 +444,7 @@ suite('FileQueue Integration Tests', () => {
 				type: 'addFile',
 				data: {
 					filePath: '/test/large-file.ts', // 15MB file from our mock
-					priority: QueueItemPriority.Normal
+					priority: 
 				}
 			});
 
@@ -470,7 +469,7 @@ suite('FileQueue Integration Tests', () => {
 			mockWebviewView.webview.postMessage.mockClear();
 
 			// Add file directly through service (simulating external change)
-			await fileQueueService.addToQueue('/test/file1.ts', QueueItemPriority.Normal, 'analyze');
+			await fileQueueService.addToQueue('/test/file1.ts',  'analyze');
 
 			// Wait for event propagation
 			await new Promise(resolve => setTimeout(resolve, 50));
@@ -499,7 +498,7 @@ suite('FileQueue Integration Tests', () => {
 			await fileQueueService.addMultipleToQueue([
 				'/test/file1.ts',
 				'/test/file2.js'
-			], QueueItemPriority.Normal);
+			]);
 
 			await new Promise(resolve => setTimeout(resolve, 50));
 
@@ -528,10 +527,10 @@ suite('FileQueue Integration Tests', () => {
 			await fileQueueService.addMultipleToQueue([
 				'/test/file1.ts',
 				'/test/file2.js'
-			], QueueItemPriority.High, 'analyze');
+			],  'analyze');
 
 			// Verify files are in queue
-			let items = fileQueueService.getQueueItems();
+			const items = fileQueueService.getQueueItems();
 			expect(items.length).toBe(2);
 
 			// Simulate webview reload by creating new provider with same services
@@ -601,10 +600,10 @@ suite('FileQueue Integration Tests', () => {
 				'/test/file1.ts',
 				'/test/file2.js',
 				'/test/file3.py'
-			], QueueItemPriority.Normal);
+			]);
 
 			// Verify files are in queue
-			let items = testFileQueueService.getQueueItems();
+			const items = testFileQueueService.getQueueItems();
 			expect(items.length).toBe(3);
 
 			// Start processing with a shorter wait time for testing
@@ -673,7 +672,7 @@ suite('FileQueue Integration Tests', () => {
 			await testFileQueueService.addMultipleToQueue([
 				'/test/cancel1.ts',
 				'/test/cancel2.js'
-			], QueueItemPriority.Normal);
+			]);
 
 			// Start processing with longer wait time
 			const processingPromise = testFileQueueService.startProcessing({

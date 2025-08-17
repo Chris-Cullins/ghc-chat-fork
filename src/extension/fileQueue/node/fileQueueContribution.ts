@@ -9,7 +9,7 @@ import { ILogService } from '../../../platform/log/common/logService';
 import { Disposable } from '../../../util/vs/base/common/lifecycle';
 import { IInstantiationService } from '../../../util/vs/platform/instantiation/common/instantiation';
 import { IExtensionContribution } from '../../common/contributions';
-import { FileQueueWebviewProvider } from '../webview/fileQueueWebviewProvider';
+import { FileQueueWebviewProvider } from '../webview/vscode-node/fileQueueWebviewProvider';
 
 export class FileQueueContribution extends Disposable implements IExtensionContribution {
 	readonly id = 'fileQueueContribution';

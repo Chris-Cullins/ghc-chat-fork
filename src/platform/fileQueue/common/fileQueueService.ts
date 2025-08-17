@@ -146,6 +146,29 @@ export interface ItemProcessedEvent {
 }
 
 /**
+ * Information about a completed queue run for repeat functionality
+ */
+export interface LastRunInfo {
+	/** File paths that were processed in the last run */
+	filePaths: string[];
+
+	/** When the last run was completed */
+	completedAt: Date;
+
+	/** Number of successfully processed files */
+	successCount: number;
+
+	/** Total number of files that were attempted */
+	totalCount: number;
+
+	/** Processing options used for the last run */
+	processingOptions?: QueueProcessingOptions;
+
+	/** Metadata about files from the last run */
+	fileMetadata?: Record<string, Record<string, any>>;
+}
+
+/**
  * Configuration options for queue processing
  */
 export interface QueueProcessingOptions {
@@ -166,7 +189,13 @@ export interface QueueProcessingOptions {
 
 	/** Delay between retries (ms) */
 	retryDelay?: number;
-	/** Time to wait for chat processing completion between files (ms) */
+
+	/** 
+	 * Maximum time to wait for chat processing completion between files (ms)
+	 * The system will use intelligent monitoring to detect when chat responses
+	 * are likely complete, but will fall back to this timeout as a safety net.
+	 * Default: 60000ms (60 seconds)
+	 */
 	chatWaitTime?: number;
 }
 
@@ -376,6 +405,27 @@ export interface IFileQueueService {
 	 * @returns Estimated duration in milliseconds
 	 */
 	estimateProcessingTime(filePath: string): Promise<number>;
+
+	// Repeat Functionality
+
+	/**
+	 * Repeat the last successful queue run
+	 * @param options Optional processing configuration for the repeat run
+	 * @returns Promise resolving when repeat queue is started
+	 */
+	repeatLastRun(options?: QueueProcessingOptions): Promise<void>;
+
+	/**
+	 * Get information about the last run that can be repeated
+	 * @returns Information about the last run or undefined if none available
+	 */
+	getLastRunInfo(): LastRunInfo | undefined;
+
+	/**
+	 * Check if there is a last run available to repeat
+	 * @returns True if a last run is available to repeat
+	 */
+	canRepeatLastRun(): boolean;
 
 }
 

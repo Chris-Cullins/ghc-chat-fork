@@ -130,6 +130,11 @@ h3 {
 	color: var(--vscode-editor-background);
 }
 
+.btn-info {
+	background: var(--processing-color);
+	color: var(--vscode-editor-background);
+}
+
 .btn-icon {
 	padding: var(--spacing-xs);
 	background: transparent;

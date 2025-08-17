@@ -36,7 +36,7 @@ interface RemoveFileMessage extends WebviewMessage {
 }
 
 interface ProcessingControlMessage extends WebviewMessage {
-	type: 'startProcessing' | 'pauseProcessing' | 'resumeProcessing' | 'stopProcessing';
+	type: 'startProcessing' | 'pauseProcessing' | 'resumeProcessing' | 'stopProcessing' | 'repeatLastRun';
 	data?: {
 		options?: any;
 	};
@@ -269,6 +269,10 @@ export class FileQueueWebviewProvider extends Disposable implements vscode.Webvi
 					await this.fileQueueService.stopProcessing();
 					break;
 
+				case 'repeatLastRun':
+					await this.fileQueueService.repeatLastRun(message.data?.options);
+					break;
+
 				case 'clearQueue':
 					await this.fileQueueService.clearQueue(message.data?.includeProcessing || false);
 					break;
@@ -317,13 +321,15 @@ export class FileQueueWebviewProvider extends Disposable implements vscode.Webvi
 		const queueState = this.fileQueueService.getQueueState();
 		const queueItems = this.fileQueueService.getQueueItems(true);
 		const statistics = this.fileQueueService.getQueueStatistics();
+		const canRepeat = this.fileQueueService.canRepeatLastRun();
 
 		this._postMessage({
 			type: 'updateQueue',
 			data: {
 				state: queueState,
 				items: queueItems,
-				statistics
+				statistics,
+				canRepeat
 			}
 		});
 	}
@@ -421,6 +427,10 @@ export class FileQueueWebviewProvider extends Disposable implements vscode.Webvi
 				<button id="start-btn" class="btn btn-success" title="Start processing queue">
 					<span class="codicon codicon-play"></span>
 					Start
+				</button>
+				<button id="repeat-btn" class="btn btn-info" title="Repeat last run" disabled>
+					<span class="codicon codicon-refresh"></span>
+					Repeat
 				</button>
 				<button id="pause-btn" class="btn btn-warning" title="Pause processing" disabled>
 					<span class="codicon codicon-debug-pause"></span>
