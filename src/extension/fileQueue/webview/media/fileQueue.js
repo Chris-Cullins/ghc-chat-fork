@@ -77,6 +77,7 @@
 		repeatBtn: document.getElementById('repeat-btn'),
 		pauseBtn: document.getElementById('pause-btn'),
 		stopBtn: document.getElementById('stop-btn'),
+		resetChatCheckbox: document.getElementById('reset-chat-checkbox'),
 
 		// Progress
 		progressContainer: document.getElementById('progress-container'),
@@ -118,6 +119,7 @@
 		elements.repeatBtn.addEventListener('click', handleRepeatLastRun);
 		elements.pauseBtn.addEventListener('click', handlePauseProcessing);
 		elements.stopBtn.addEventListener('click', handleStopProcessing);
+		elements.resetChatCheckbox.addEventListener('change', handleResetChatToggle);
 
 		// Queue actions
 		elements.expandAllBtn.addEventListener('click', handleExpandAll);
@@ -132,15 +134,24 @@
 	}
 
 	function setupDragAndDrop() {
+		console.log('🎯 Setting up drag and drop functionality...');
+		
 		// Setup drag and drop on both the queue list and the entire container
 		const dropZones = [elements.queueList, elements.emptyState, document.querySelector('.container')];
+		console.log('📍 Drop zones found:', dropZones.filter(Boolean).length);
 
-		dropZones.forEach(zone => {
+		dropZones.forEach((zone, index) => {
 			if (zone) {
+				console.log(`✅ Setting up drop zone ${index}:`, zone.className || zone.tagName);
 				zone.addEventListener('dragover', handleDragOver);
 				zone.addEventListener('drop', handleDrop);
 				zone.addEventListener('dragleave', handleDragLeave);
 				zone.addEventListener('dragenter', handleDragEnter);
+				
+				// Add data attribute for debugging
+				zone.setAttribute('data-drop-zone', `zone-${index}`);
+			} else {
+				console.warn(`❌ Drop zone ${index} is null`);
 			}
 		});
 
@@ -152,14 +163,26 @@
 		document.addEventListener('drop', (e) => {
 			e.preventDefault();
 		});
+		
+		// Add global drag event listeners for debugging
+		document.addEventListener('dragstart', (e) => {
+			console.log('🚀 Drag started:', e.dataTransfer?.types);
+		});
+		
+		document.addEventListener('dragend', (e) => {
+			console.log('🏁 Drag ended');
+		});
 
 		// Add visual cues to the empty state
 		if (elements.emptyState) {
 			const emptyStateText = elements.emptyState.querySelector('p');
 			if (emptyStateText && emptyStateText.textContent === 'No files in queue') {
 				emptyStateText.textContent = 'No files in queue - Drag files here to add them';
+				console.log('✅ Updated empty state text for drag hint');
 			}
 		}
+		
+		console.log('✅ Drag and drop setup complete');
 	}
 
 	// Event handlers
@@ -217,6 +240,14 @@
 	function handleStopProcessing() {
 		vscode.postMessage({
 			type: 'stopProcessing'
+		});
+	}
+
+	function handleResetChatToggle() {
+		const isChecked = elements.resetChatCheckbox.checked;
+		vscode.postMessage({
+			type: 'setResetChatBetweenFiles',
+			value: isChecked
 		});
 	}
 
@@ -283,20 +314,42 @@
 		const dataTransfer = e.dataTransfer;
 		let filePaths = [];
 
-		// Debug logging
-		console.log('Drag and drop data received:');
-		console.log('- Types:', dataTransfer.types);
-		console.log('- Files count:', dataTransfer.files ? dataTransfer.files.length : 0);
-		console.log('- URI list:', dataTransfer.getData('text/uri-list'));
-		console.log('- VS Code explorer data:', dataTransfer.getData('application/vnd.code.tree.explorer'));
-		console.log('- Plain text:', dataTransfer.getData('text/plain'));
+		// Enhanced debug logging
+		console.group('🎯 Drag and Drop Debug Information');
+		console.log('📋 DataTransfer object:', dataTransfer);
+		console.log('📝 Available types:', dataTransfer.types);
+		console.log('📁 Files count:', dataTransfer.files ? dataTransfer.files.length : 0);
+		console.log('🔗 URI list:', dataTransfer.getData('text/uri-list'));
+		console.log('🌳 VS Code explorer data:', dataTransfer.getData('application/vnd.code.tree.explorer'));
+		console.log('📄 Plain text:', dataTransfer.getData('text/plain'));
 
 		// Log all available data transfer types and their content for debugging
+		console.group('📊 All Data Transfer Types:');
 		for (let i = 0; i < dataTransfer.types.length; i++) {
 			const type = dataTransfer.types[i];
 			const data = dataTransfer.getData(type);
-			console.log(`- Type "${type}":`, data);
+			console.log(`🏷️ Type "${type}":`, data?.length > 200 ? `${data.substring(0, 200)}...` : data);
 		}
+		console.groupEnd();
+
+		// Check for specific VS Code data formats
+		console.group('🔍 VS Code Format Analysis:');
+		const vsCodeFormats = [
+			'application/vnd.code.tree.explorer',
+			'application/vnd.code.tree.file',
+			'application/vnd.code.tree.folder',
+			'application/vnd.code.resource',
+			'vscode-editor-data',
+			'vscode-resource'
+		];
+		vsCodeFormats.forEach(format => {
+			if (dataTransfer.types.includes(format)) {
+				console.log(`✅ Found ${format}:`, dataTransfer.getData(format));
+			} else {
+				console.log(`❌ Missing ${format}`);
+			}
+		});
+		console.groupEnd();
 
 		try {
 			// Handle VS Code internal file drops (from explorer) - primary method
@@ -441,15 +494,66 @@
 				}
 			}
 
-			// Process the collected file paths
+			// Enhanced processing and fallback attempts
 			if (filePaths.length > 0) {
-				console.log('Final file paths to process:', filePaths);
+				console.log('✅ Final file paths to process:', filePaths);
+				console.groupEnd(); // Close the debug group
 				handleDroppedFiles(filePaths);
 			} else {
-				console.warn('No valid files found in dropped content. Available types were:', dataTransfer.types);
+				console.warn('❌ No valid files found in dropped content. Available types were:', dataTransfer.types);
+				
+				// Try emergency fallback methods
+				console.group('🚨 Emergency Fallback Attempts:');
+				
+				// Attempt 1: Look for any string that resembles a file path
+				const allDataValues = [];
+				for (const type of dataTransfer.types) {
+					try {
+						const data = dataTransfer.getData(type);
+						if (data && typeof data === 'string') {
+							allDataValues.push(data);
+						}
+					} catch (e) {
+						console.log(`Failed to get data for type ${type}:`, e);
+					}
+				}
+				
+				// Look for file path patterns in all data
+				const emergencyPaths = [];
+				allDataValues.forEach((data, index) => {
+					// Look for file:// URIs
+					const fileUris = data.match(/file:\/\/[^\s\n\r"']+/g);
+					if (fileUris) {
+						emergencyPaths.push(...fileUris.map(uri => {
+							let path = decodeURIComponent(uri.replace('file://', ''));
+							if (path.match(/^\/[A-Za-z]:/)) path = path.substring(1);
+							return path;
+						}));
+						console.log(`Found file URIs in data ${index}:`, fileUris);
+					}
+					
+					// Look for absolute paths
+					const absolutePaths = data.match(/(?:^|\s)[\/\\]?[a-zA-Z]?:?[\/\\][^\s\n\r"'<>|*?]+\.[a-zA-Z0-9]+(?=\s|$|\n)/g);
+					if (absolutePaths) {
+						emergencyPaths.push(...absolutePaths.map(p => p.trim()));
+						console.log(`Found absolute paths in data ${index}:`, absolutePaths);
+					}
+				});
+				
+				if (emergencyPaths.length > 0) {
+					console.log('🎯 Emergency extraction found paths:', emergencyPaths);
+					console.groupEnd();
+					console.groupEnd(); // Close main debug group
+					handleDroppedFiles(emergencyPaths);
+					return;
+				}
+				
+				console.groupEnd(); // Close fallback group
+				console.groupEnd(); // Close main debug group
+				
 				const errorMessage = dataTransfer.types.length > 0
-					? `No valid files found in the dropped content. Detected data types: ${dataTransfer.types.join(', ')}. Please try dragging files directly from the VS Code Explorer.`
-					: 'No valid files found in the dropped content. Please try dragging files from the VS Code Explorer.';
+					? `❌ No valid files found. Types detected: ${dataTransfer.types.join(', ')}\n\n🔧 Troubleshooting:\n• Try dragging files from VS Code Explorer (not external file manager)\n• Ensure files have extensions\n• Check browser console for detailed debug info`
+					: '❌ No data detected. Please drag files from VS Code Explorer.';
 				showDropError(errorMessage);
 			}
 
@@ -570,7 +674,7 @@
 	}
 
 	function showDropSuccess(message) {
-		console.log('Drop success:', message);
+		console.log('✅ Drop success:', message);
 
 		// Create temporary success indicator
 		showTemporaryFeedback(message, 'success');
@@ -581,26 +685,39 @@
 			data: {
 				message: message,
 				severity: 'info',
-				timestamp: new Date().toISOString()
+				timestamp: new Date().toISOString(),
+				context: 'drag-and-drop-success'
 			}
 		});
 	}
 
 	function showDropError(message) {
-		console.error('Drop error:', message);
+		console.error('🚨 Drop error:', message);
 
-		// Create temporary error indicator
+		// Create temporary error indicator with enhanced formatting
 		showTemporaryFeedback(message, 'error');
 
-		// Send error message to extension
+		// Send detailed error message to extension with debugging info
 		vscode.postMessage({
 			type: 'error',
 			data: {
 				message: message,
 				severity: 'warning',
-				timestamp: new Date().toISOString()
+				timestamp: new Date().toISOString(),
+				context: 'drag-and-drop',
+				userAgent: navigator.userAgent,
+				platform: navigator.platform
 			}
 		});
+		
+		// Also log instructions for user
+		console.group('🔧 Drag & Drop Troubleshooting Guide:');
+		console.log('1. 📂 Try dragging from VS Code Explorer panel (left sidebar)');
+		console.log('2. 🚫 External file manager drops are blocked for security');
+		console.log('3. 📄 Ensure files have proper extensions (.js, .ts, .md, etc.)');
+		console.log('4. 🔄 If stuck, use the "Add Files" button instead');
+		console.log('5. 🔍 Check console for detailed drag event data above');
+		console.groupEnd();
 	}
 
 	function showTemporaryFeedback(message, type) {
@@ -658,6 +775,11 @@
 		currentState.items = data.items;
 		currentState.statistics = data.statistics;
 		currentState.canRepeat = data.canRepeat || false;
+
+		// Update reset chat checkbox if provided
+		if (data.resetChatBetweenFiles !== undefined && elements.resetChatCheckbox) {
+			elements.resetChatCheckbox.checked = data.resetChatBetweenFiles;
+		}
 
 		updateUI();
 	}

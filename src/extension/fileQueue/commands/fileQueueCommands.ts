@@ -359,4 +359,24 @@ export class FileQueueCommands {
 		}
 	}
 
+	/**
+	 * Toggle the reset chat between files setting
+	 */
+	async toggleResetChatBetweenFiles(): Promise<void> {
+		try {
+			const currentSetting = this.fileQueueService.getResetChatBetweenFiles();
+			const newSetting = !currentSetting;
+			
+			this.fileQueueService.setResetChatBetweenFiles(newSetting);
+			
+			const status = newSetting ? 'enabled' : 'disabled';
+			vscode.window.showInformationMessage(`Reset chat context between files: ${status}`);
+			
+			this.logService.info(`Reset chat between files setting toggled to: ${newSetting}`);
+		} catch (error) {
+			this.logService.error('Failed to toggle reset chat setting:', error);
+			vscode.window.showErrorMessage(`Failed to toggle reset chat setting: ${error}`);
+		}
+	}
+
 }

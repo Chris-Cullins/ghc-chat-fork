@@ -31,6 +31,7 @@ interface QueueStorage {
 	items: FileQueueItem[];
 	state: QueueState;
 	lastRun?: LastRunInfo;
+	resetChatBetweenFiles?: boolean;
 	version: number;
 }
 
@@ -56,6 +57,9 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 
 	// File processor (injected from extension layer)
 	private _fileProcessor?: IFileProcessor;
+
+	// Chat context reset setting
+	private _resetChatBetweenFiles = false;
 
 	// Events
 	private readonly _onQueueChanged = this._register(new Emitter<QueueChangeEvent>());
@@ -496,6 +500,7 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 				items: Array.from(this._items.values()),
 				state: this._queueState,
 				lastRun: this._lastRun,
+				resetChatBetweenFiles: this._resetChatBetweenFiles,
 				version: 1
 			};
 
@@ -546,6 +551,11 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 						...storage.lastRun,
 						completedAt: new Date(storage.lastRun.completedAt)
 					};
+				}
+
+				// Restore reset chat between files setting
+				if (storage.resetChatBetweenFiles !== undefined) {
+					this._resetChatBetweenFiles = storage.resetChatBetweenFiles;
 				}
 
 				// Move completed items to history
@@ -1243,6 +1253,18 @@ export class FileQueueServiceImpl extends Disposable implements IFileQueueServic
 	setFileProcessor(processor: IFileProcessor): void {
 		this._fileProcessor = processor;
 		this.logService.debug('File processor set for queue service');
+	}
+
+	getResetChatBetweenFiles(): boolean {
+		return this._resetChatBetweenFiles;
+	}
+
+	setResetChatBetweenFiles(reset: boolean): void {
+		this._resetChatBetweenFiles = reset;
+		this.logService.debug(`Chat context reset between files set to: ${reset}`);
+		
+		// Persist this setting
+		void this.saveState();
 	}
 
 	private _handleError(context: string, message: string, severity: 'warning' | 'error' | 'critical', recoverable: boolean): void {

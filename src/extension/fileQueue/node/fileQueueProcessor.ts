@@ -89,6 +89,29 @@ export class FileQueueProcessor {
 			// Record the start of chat interaction for this file
 			// (This is now handled through the service interface)
 
+			// Check if we should reset chat context before processing this file
+			const shouldResetChat = (this.fileQueueService as any).getResetChatBetweenFiles?.() ?? false;
+			if (shouldResetChat) {
+				this.logService.info('Resetting chat context before processing new file');
+				// Execute the new chat command to clear the context
+				try {
+					await vscode.commands.executeCommand('workbench.action.chat.clear');
+				} catch (clearError) {
+					// If clear command doesn't exist, try alternative approaches
+					this.logService.debug('Chat clear command not available, trying alternative');
+					try {
+						// Try to open a new chat session
+						await vscode.commands.executeCommand('workbench.action.chat.newChat');
+					} catch (newChatError) {
+						// As a fallback, just open the chat panel which might reset context
+						this.logService.debug('New chat command not available, opening fresh chat panel');
+						await vscode.commands.executeCommand('workbench.action.chat.open');
+					}
+				}
+				// Small delay after reset to ensure it completes
+				await new Promise(resolve => setTimeout(resolve, 500));
+			}
+
 			// First, attach the file to chat using VS Code command
 			this.logService.info(`Attaching file to chat: ${filePath}`);
 			await vscode.commands.executeCommand('workbench.action.chat.attachFile', vscode.Uri.file(filePath));

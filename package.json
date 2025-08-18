@@ -2113,6 +2113,11 @@
                 "category": "File Queue"
             },
             {
+                "command": "github.copilot.fileQueue.toggleResetChatBetweenFiles",
+                "title": "Toggle Reset Chat Between Files",
+                "category": "File Queue"
+            },
+            {
                 "command": "github.copilot.autoPermission.createProfile",
                 "title": "Create Permission Profile",
                 "category": "Auto-Permission"
@@ -3330,6 +3335,10 @@
                 {
                     "command": "github.copilot.fileQueue.focus",
                     "when": "github.copilot-chat.activated"
+                },
+                {
+                    "command": "github.copilot.fileQueue.toggleResetChatBetweenFiles",
+                    "when": "github.copilot-chat.activated"
                 }
             ],
             "view/title": [
@@ -3681,7 +3690,23 @@
             }
         ],
         "views": {
-            "copilot-chat": [
+            "explorer": [
+                {
+                    "id": "github.copilot.fileQueue",
+                    "name": "File Processing Queue",
+                    "type": "webview",
+                    "icon": "$(list-ordered)",
+                    "visibility": "visible"
+                },
+                {
+                    "id": "github.copilot.autoPermission",
+                    "name": "Auto-Permission Manager",
+                    "type": "webview",
+                    "icon": "$(shield)",
+                    "visibility": "collapsed"
+                }
+            ],
+            "copilot-chat-debug": [
                 {
                     "id": "copilot-chat",
                     "name": "Copilot Chat Debug",
@@ -3695,41 +3720,6 @@
                     "name": "Language Context Inspector",
                     "icon": "$(inspect)",
                     "when": "github.copilot.chat.showContextInspectorView"
-                }
-            ],
-            "github.copilot.fileQueue": [
-                {
-                    "id": "github.copilot.fileQueue",
-                    "name": "File Processing Queue",
-                    "type": "webview",
-                    "icon": "$(list-ordered)",
-                    "visibility": "visible"
-                },
-                {
-                    "id": "github.copilot.autoPermission",
-                    "name": "Auto-Permission Manager",
-                    "type": "webview",
-                    "icon": "$(shield)",
-                    "visibility": "visible"
-                }
-            ]
-        },
-        "viewsContainers": {
-            "activitybar": [
-                {
-                    "id": "copilot-chat",
-                    "title": "Copilot Chat Debug",
-                    "icon": "assets/debug-icon.svg"
-                },
-                {
-                    "id": "context-inspector",
-                    "title": "Language Context Inspector",
-                    "icon": "$(inspect)"
-                },
-                {
-                    "id": "github.copilot.fileQueue",
-                    "title": "File Queue",
-                    "icon": "$(list-ordered)"
                 }
             ]
         },

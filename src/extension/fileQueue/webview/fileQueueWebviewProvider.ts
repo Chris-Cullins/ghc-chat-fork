@@ -269,6 +269,10 @@ export class FileQueueWebviewProvider extends Disposable implements vscode.Webvi
 					await this.fileQueueService.stopProcessing();
 					break;
 
+				case 'setResetChatBetweenFiles':
+					this.fileQueueService.setResetChatBetweenFiles(message.value);
+					break;
+
 				case 'repeatLastRun':
 					await this.fileQueueService.repeatLastRun(message.data?.options);
 					break;
@@ -290,11 +294,23 @@ export class FileQueueWebviewProvider extends Disposable implements vscode.Webvi
 				case 'error':
 					// Log error from webview (e.g., drag and drop errors)
 					this.logService.error(`Webview error: ${message.data?.message || 'Unknown error'}`);
+					// Also show in VS Code notification for drag-drop issues
+					if (message.data?.context === 'drag-and-drop') {
+						vscode.window.showWarningMessage(`Drag & Drop Issue: ${message.data.message}`, 'Open Developer Tools').then(action => {
+							if (action === 'Open Developer Tools') {
+								vscode.commands.executeCommand('workbench.action.webview.openDeveloperTools');
+							}
+						});
+					}
 					break;
 
 				case 'info':
 					// Log info from webview (e.g., drag and drop success)
 					this.logService.info(`Webview info: ${message.data?.message || 'Unknown info'}`);
+					// Show successful drag-drop in VS Code notification
+					if (message.data?.context === 'drag-and-drop-success') {
+						vscode.window.showInformationMessage(`✅ ${message.data.message}`);
+					}
 					break;
 
 				default:
@@ -322,6 +338,7 @@ export class FileQueueWebviewProvider extends Disposable implements vscode.Webvi
 		const queueItems = this.fileQueueService.getQueueItems(true);
 		const statistics = this.fileQueueService.getQueueStatistics();
 		const canRepeat = this.fileQueueService.canRepeatLastRun();
+		const resetChatBetweenFiles = this.fileQueueService.getResetChatBetweenFiles();
 
 		this._postMessage({
 			type: 'updateQueue',
@@ -329,7 +346,8 @@ export class FileQueueWebviewProvider extends Disposable implements vscode.Webvi
 				state: queueState,
 				items: queueItems,
 				statistics,
-				canRepeat
+				canRepeat,
+				resetChatBetweenFiles
 			}
 		});
 	}
@@ -421,6 +439,13 @@ export class FileQueueWebviewProvider extends Disposable implements vscode.Webvi
 					<span class="codicon codicon-trash"></span>
 					Clear
 				</button>
+			</div>
+			
+			<div class="control-group">
+				<label class="checkbox-label" title="Reset chat context between each file to start fresh">
+					<input type="checkbox" id="reset-chat-checkbox" />
+					<span>Reset chat between files</span>
+				</label>
 			</div>
 			
 			<div class="control-group processing-controls">

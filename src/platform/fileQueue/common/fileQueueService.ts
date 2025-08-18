@@ -469,6 +469,20 @@ export interface IFileQueueService {
 	 */
 	setFileProcessor(processor: IFileProcessor): void;
 
+	// Chat Context Management
+
+	/**
+	 * Get whether chat context should be reset between processing files
+	 * @returns True if chat should be reset between files
+	 */
+	getResetChatBetweenFiles(): boolean;
+
+	/**
+	 * Set whether chat context should be reset between processing files
+	 * @param reset Whether to reset chat between files
+	 */
+	setResetChatBetweenFiles(reset: boolean): void;
+
 }
 
 export const IFileQueueService = createServiceIdentifier<IFileQueueService>('IFileQueueService');

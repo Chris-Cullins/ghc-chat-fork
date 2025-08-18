@@ -401,6 +401,14 @@ export class FileQueueContribution extends Disposable implements IExtensionContr
 			}
 		));
 
+		// Command to toggle reset chat between files
+		this._register(vscode.commands.registerCommand(
+			'github.copilot.fileQueue.toggleResetChatBetweenFiles',
+			async () => {
+				await this.commands.toggleResetChatBetweenFiles();
+			}
+		));
+
 		// Command to show active chat sessions
 		this._register(vscode.commands.registerCommand(
 			'github.copilot.fileQueue.showActiveChatSessions',

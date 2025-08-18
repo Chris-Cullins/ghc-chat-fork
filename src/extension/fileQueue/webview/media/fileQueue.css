@@ -161,6 +161,19 @@ h3 {
 	align-items: center;
 }
 
+.checkbox-label {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-xs);
+	cursor: pointer;
+	user-select: none;
+	font-size: 0.9em;
+}
+
+.checkbox-label input[type="checkbox"] {
+	cursor: pointer;
+}
+
 /* Progress */
 .progress-container {
 	background: var(--vscode-editor-background);
@@ -492,6 +505,125 @@ body.drag-active .queue-list:not(.drag-over),
 body.drag-active .empty-state:not(.drag-over) {
 	opacity: 0.7;
 	transform: scale(0.98);
+}
+
+/* Enhanced drag and drop visual feedback */
+.empty-state:hover {
+	border-color: var(--vscode-focusBorder);
+	background: var(--vscode-list-hoverBackground);
+}
+
+.empty-state.drag-over {
+	border-color: var(--vscode-inputValidation-infoBorder) !important;
+	background: var(--vscode-inputValidation-infoBackground) !important;
+	border-style: solid !important;
+	transform: scale(1.02);
+	box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+}
+
+.empty-state.drag-over::before {
+	content: '⬇️ Drop files here to add to queue';
+	color: var(--vscode-inputValidation-infoForeground);
+	font-size: 1.2rem;
+	animation: pulse 1s infinite;
+	font-weight: 600;
+}
+
+.empty-state.drag-over::after {
+	content: 'Files from VS Code Explorer work best';
+	display: block;
+	font-size: 0.8rem;
+	margin-top: var(--spacing-sm);
+	opacity: 0.8;
+}
+
+/* Enhanced queue list drop zone */
+.queue-list.drag-over {
+	min-height: 80px;
+	border: 2px solid var(--vscode-inputValidation-infoBorder);
+	border-radius: var(--border-radius);
+	background: var(--vscode-inputValidation-infoBackground);
+	position: relative;
+	transition: all 0.2s ease;
+}
+
+.queue-list.drag-over::after {
+	content: '⬇️ Drop files here to add to queue';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	color: var(--vscode-inputValidation-infoForeground);
+	font-weight: 500;
+	pointer-events: none;
+	animation: pulse 1s infinite;
+}
+
+/* Global drag feedback */
+body.drag-active {
+	cursor: copy !important;
+}
+
+body.drag-active::before {
+	content: '🎯 Drop files in highlighted areas';
+	position: fixed;
+	top: 20px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: var(--vscode-inputValidation-infoBackground);
+	color: var(--vscode-inputValidation-infoForeground);
+	border: 1px solid var(--vscode-inputValidation-infoBorder);
+	padding: var(--spacing-sm) var(--spacing-md);
+	border-radius: var(--border-radius);
+	z-index: 10000;
+	font-size: 0.9rem;
+	font-weight: 500;
+	pointer-events: none;
+	animation: slideInDown 0.3s ease;
+}
+
+@keyframes slideInDown {
+	from {
+		transform: translateX(-50%) translateY(-20px);
+		opacity: 0;
+	}
+	to {
+		transform: translateX(-50%) translateY(0);
+		opacity: 1;
+	}
+}
+
+/* Enhanced drop feedback */
+.drop-feedback {
+	padding: var(--spacing-md) var(--spacing-lg);
+	margin-bottom: var(--spacing-md);
+	border-radius: var(--border-radius);
+	font-size: 0.9em;
+	font-weight: 500;
+	display: flex;
+	align-items: flex-start;
+	gap: var(--spacing-sm);
+	position: relative;
+	max-width: 90%;
+	word-wrap: break-word;
+	white-space: pre-wrap;
+	line-height: 1.4;
+}
+
+.drop-feedback::before {
+	content: '🔔';
+	flex-shrink: 0;
+	margin-top: 2px;
+}
+
+.drop-feedback-success::before {
+	content: '✅';
+	background: transparent;
+}
+
+.drop-feedback-error::before {
+	content: '❌';
+	background: transparent;
 }
 
 /* Recent items */
